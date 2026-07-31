@@ -403,10 +403,13 @@ function boot() {
       subscribe();
       return;
     }
-    // fresh weekend: carry last week's activity list forward
+    // Fresh weekend: carry last week's activity list forward. Keep any votes
+    // already cast this week — the first voter writes votes before the list exists.
+    var votesSoFar = raw && raw.votes ? normalize(raw).votes : {};
     return req("GET", "/weekends/" + iso(PREV) + "/activities").then(function (prev) {
       var acts = Array.isArray(prev) && prev.length ? normalize({ activities: prev }).activities : DEFAULT_ACTIVITIES.slice();
-      S.data = { activities: acts, votes: {} };
+      S.data = { activities: acts, votes: votesSoFar };
+      pendingActivities = true; // persist the carried list with our first write
       render();
       subscribe();
     });
