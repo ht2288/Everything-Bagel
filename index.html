@@ -348,8 +348,9 @@ function normalizeDb(raw) {
   if (!/^[a-z0-9-]+(-default-rtdb)?(\.[a-z0-9-]+)*\.(firebaseio\.com|firebasedatabase\.app)$/i.test(v)) return null;
   return "https://" + v;
 }
-function readDbFromHash() {
-  var m = /[#&]db=([^&]+)/.exec(location.hash || "");
+function readDbFromUrl() {
+  var m = /[?&]db=([^&#]+)/.exec(location.search || "");
+  if (!m) m = /[#&]db=([^&]+)/.exec(location.hash || "");
   return m ? normalizeDb(decodeURIComponent(m[1])) : null;
 }
 
@@ -521,7 +522,7 @@ function setStatus(s) {
   S.status = s;
   var el = document.getElementById("flag");
   if (!el) return;
-  var text = s === "saving" ? "Saving" : s === "error" ? "Offline \u2014 retrying" : s === "ok" ? "Shared" : "Loading";
+  var text = s === "setup" ? "Setup" : s === "saving" ? "Saving" : s === "error" ? "Offline \u2014 retrying" : s === "ok" ? "Shared" : "Loading";
   el.textContent = text;
   el.className = "flag" + (s === "error" ? " error" : "");
 }
@@ -546,7 +547,7 @@ function viewSetup(err) {
     + '<p>This poll keeps its votes in a free Firebase database. Set it up once from your phone, then everyone else just taps the link.</p>'
     + '<ol>'
     + '<li>Open <code>console.firebase.google.com</code> and tap <b>Create a project</b>. Any name. Skip Analytics.</li>'
-    + '<li>In the left menu choose <b>Build \u2192 Realtime Database</b>, then <b>Create Database</b>. Pick any region and choose <b>Start in test mode</b>.</li>'
+    + '<li>Open the menu (\u2630) and choose <b>Databases &amp; Storage \u2192 Realtime Database</b> \u2014 not Firestore, that\u2019s a different product \u2014 then <b>Create Database</b>. Pick any region, choose <b>Test mode</b>, and Enable.</li>'
     + '<li>Open the <b>Rules</b> tab and replace what\u2019s there with <code>{"rules":{".read":true,".write":true}}</code> then <b>Publish</b>. Test mode expires after 30 days \u2014 this step is what stops the poll dying next month.</li>'
     + '<li>Back on the <b>Data</b> tab, copy the URL shown at the top. It ends in <code>firebaseio.com</code> or <code>firebasedatabase.app</code>.</li>'
     + '</ol>'
@@ -559,7 +560,7 @@ function viewSetup(err) {
 }
 
 function viewShare() {
-  var link = location.origin + location.pathname + "#db=" + encodeURIComponent(S.db.replace(/^https:\/\//, ""));
+  var link = location.origin + location.pathname + "?db=" + encodeURIComponent(S.db.replace(/^https:\/\//, ""));
   return '<section class="block share-block">'
     + '<h3 class="rule-head"><span>Send this to the group</span></h3>'
     + '<input id="share-link" readonly value="' + esc(link) + '" />'
@@ -831,12 +832,12 @@ document.addEventListener("click", function (e) {
 
 /* ---------- start ---------- */
 drawOrnament();
-S.db = readDbFromHash() || normalizeDb(ls("bagel:db"));
+S.db = readDbFromUrl() || normalizeDb(ls("bagel:db"));
 if (S.db) ls("bagel:db", S.db);
 var savedMe = ls("bagel:me");
 if (savedMe && FAM[savedMe]) { S.me = savedMe; S.resumed = true; }
 render();
-if (S.db) boot(); else setStatus("ok");
+if (S.db) boot(); else setStatus("setup");
 </script>
 </body>
 </html>
