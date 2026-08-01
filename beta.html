@@ -211,6 +211,8 @@ html, body { margin: 0; padding: 0; }
 
 
 /* ---- venue panel ---- */
+.locked .note { color: var(--ink-45); }
+.next-up { margin: 18px 0 0; padding-top: 14px; border-top: 1px dashed var(--hair); font-size: 13px; line-height: 1.6; color: var(--ink-45); }
 .spot-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hair-soft); }
 .spot-list li { display: flex; align-items: center; border-bottom: 1px solid var(--hair-soft); }
 .spot-list button[data-spot] { flex: 1; display: flex; align-items: center; gap: 12px; padding: 12px 2px; text-align: left; min-width: 0; }
@@ -226,6 +228,16 @@ html, body { margin: 0; padding: 0; }
 .spot-list .map-link { flex: 0 0 auto; padding-left: 8px; color: var(--ink-45); text-decoration: underline; }
 .chip-ago { display: block; font-family: var(--util); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-45); margin-top: 2px; }
 .spot .chips button { text-align: left; }
+
+/* ---- sitting out ---- */
+.sitting { padding: 16px; border: 1px solid var(--hair); background: rgba(176,148,96,.09); }
+.sitting p { margin: 0 0 8px; font-size: 14.5px; color: var(--ink-70); }
+.sitting b { font-weight: 400; color: var(--ink); }
+.mx-tag { font-family: var(--util); font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; font-style: normal; color: var(--ink-45); margin-left: 6px; }
+.mx-out { color: var(--ink-45); }
+.mx-quiet { color: var(--ink-45); opacity: .45; }
+.mx-c-out { background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(26,24,21,.09) 2px, rgba(26,24,21,.09) 3px); }
+.mx-c-quiet { border-style: dashed; }
 
 /* ---- discovery card ---- */
 .find { margin-top: 16px; padding: 16px; border: 1px solid var(--claret); background: var(--claret-soft); }
@@ -525,7 +537,7 @@ var S = {
   feedShown: 9, status: "loading", newSlots: [], confirming: null,
   recap: null, lightbox: null, uploading: 0, setupError: null
 };
-var BLANK = { picks: [], avail: { sat: [], sun: [] } };
+var BLANK = { out: false, picks: [], avail: { sat: [], sun: [] } };
 var saveTimer = null, dirty = false, pendingActivities = false, wipeAll = false, pendingSpot = false;
 var pendingName = "";
 
@@ -597,6 +609,7 @@ function normalize(raw) {
     if (!FAM[fid]) return;
     var v = votes[fid] || {};
     out.votes[fid] = {
+      out: !!v.out,
       picks: Array.isArray(v.picks) ? v.picks : [],
       avail: {
         sat: (v.avail && Array.isArray(v.avail.sat)) ? v.avail.sat : [],
@@ -719,20 +732,38 @@ function clearSpot() {
 }
 function myVote() { return (S.me && S.data.votes[S.me]) || BLANK; }
 function ensureMine() {
-  if (!S.data.votes[S.me]) S.data.votes[S.me] = { picks: [], avail: { sat: [], sun: [] } };
+  if (!S.data.votes[S.me]) S.data.votes[S.me] = { out: false, picks: [], avail: { sat: [], sun: [] } };
   return S.data.votes[S.me];
 }
 
 /* ---------- counting ---------- */
+/* in = responded and available · out = responded, can't make it · quiet = no response */
+function familyState(fid) {
+  var v = S.data.votes[fid];
+  if (!v) return "quiet";
+  if (v.out) return "out";
+  var any = (v.avail.sat.length + v.avail.sun.length) > 0 || v.picks.length > 0;
+  return any ? "in" : "quiet";
+}
+function byState() {
+  var g = { in: [], out: [], quiet: [] };
+  FAMILIES.forEach(function (f) { g[familyState(f.id)].push(f); });
+  return g;
+}
+function names(list) { return list.map(function (f) { return f.label.split(" + ")[0]; }).join(", "); }
+
 function tally() {
   var rows = S.data.activities.map(function (a) {
     var interested = FAMILIES.filter(function (f) {
-      var v = S.data.votes[f.id]; return v && v.picks.indexOf(a.id) > -1;
+      var v = S.data.votes[f.id]; return v && !v.out && v.picks.indexOf(a.id) > -1;
     }).map(function (f) { return f.id; });
     var combos = [];
     DAYS.forEach(function (d) {
       a.slots.forEach(function (slot) {
-        var who = interested.filter(function (fid) { return S.data.votes[fid].avail[d.id].indexOf(slot) > -1; });
+        var who = interested.filter(function (fid) {
+          var vv = S.data.votes[fid];
+          return vv && !vv.out && vv.avail[d.id].indexOf(slot) > -1;
+        });
         combos.push({ day: d.id, slot: slot, who: who });
       });
     });
@@ -1227,6 +1258,12 @@ function viewBallot() {
   var v = myVote(), out = "";
   out += '<section class="block"><h3 class="rule-head"><span>Your ballot</span></h3>'
     + '<p class="myhouse">' + esc(FAM[S.me].label) + '<button class="link" id="switch">switch</button></p>';
+  if (v.out) {
+    out += '<div class="sitting"><p><b>You\u2019re sitting this one out.</b> The others know not to wait on you.</p>'
+      + '<button class="link" id="back-in">Actually, we can make it</button></div>'
+      + '</section>';
+    return out;
+  }
   out += '<p class="sub">When is your family free?</p><div class="avail"><span></span>'
     + SLOTS.map(function (s) { return '<span class="avail-col">' + s.label + '</span>'; }).join("");
   DAYS.forEach(function (d) {
@@ -1252,13 +1289,32 @@ function viewBallot() {
   out += '</ul><div class="add"><input id="new-name" maxlength="80" placeholder="Propose something else" /><div class="chips">'
     + SLOTS.map(function (s) { return '<button class="chip' + (S.newSlots.indexOf(s.id) > -1 ? " on" : "") + '" data-slot="' + s.id + '">' + s.label + '</button>'; }).join("")
     + '<button class="primary" id="add-act">Add</button></div>'
-    + '<p class="note">Choose the blocks it actually works in \u2014 a dinner plan only ever competes for dinner.</p></div></section>';
-  return out;
+    + '<p class="note">Choose the blocks it actually works in \u2014 a dinner plan only ever competes for dinner.</p></div>';
+
+  out += '<p class="note" style="margin-top:18px">Busy all weekend? '
+    + '<button class="link" id="sit-out">Tell everyone you\u2019re out</button>'
+    + '<br />Better than staying quiet \u2014 it stops the board waiting on you.</p>';
+
+  var leadNow = tally()[0];
+  if (!leadNow || leadNow.best.who.length < 2) {
+    out += '<p class="next-up">Once two families line up on the same activity and time, a section opens up below for picking the actual spot.</p>';
+  }
+  return out + '</section>';
 }
 function viewSpot() {
   var rows = tally();
   var lead = rows[0];
-  if (!lead || lead.best.who.length < MAJORITY) return "";   // only once it's actually happening
+  if (!lead || !S.data.activities.length) return "";
+
+  /* Two families sharing a time is a plan forming — that's enough to start
+     talking about where. Below that, show what's coming so it's not a secret. */
+  var UNLOCK = 2;
+  if (lead.best.who.length < UNLOCK) {
+    var need = UNLOCK - lead.best.who.length;
+    return '<section class="block spot locked"><h3 class="rule-head"><span>Where</span></h3>'
+      + '<p class="note" style="margin:0">Waiting on ' + (lead.best.who.length ? need + ' more famil' + (need === 1 ? "y" : "ies") : 'two families')
+      + '. Then: places you\u2019ve been, a search, and a roulette that leans toward somewhere you haven\u2019t been in a while.</p></section>';
+  }
 
   var name = lead.activity.name;
   var kind = kindFor(name);
@@ -1272,7 +1328,8 @@ function viewSpot() {
   }).slice(0, 4);
 
   var out = '<section class="block spot"><h3 class="rule-head"><span>Where for ' + esc(name.toLowerCase()) + '?</span></h3>';
-  out += '<p class="note" style="margin:0 0 14px">' + esc(name) + ' has the votes. '
+  out += '<p class="note" style="margin:0 0 14px">' + esc(name) + ' is '
+    + (lead.best.who.length >= MAJORITY ? 'the clear winner' : 'in front') + '. '
     + (homesOnly ? 'This one needs a host \u2014 whoever\u2019s up for it can put their place forward.'
                  : 'Now the easy part \u2014 back a spot, or let it pick.') + '</p>';
 
@@ -1357,17 +1414,20 @@ function viewStandings() {
     + DAYS.map(function (d) { return '<span class="mx-day">' + d.short + '</span>'; }).join("") + '<span></span>';
   DAYS.forEach(function (d) { SLOTS.forEach(function (s) { out += '<span class="mx-tick">' + s.tick + '</span>'; }); });
   FAMILIES.forEach(function (f) {
-    var v = S.data.votes[f.id];
-    out += '<span class="mx-name' + (v ? "" : " off") + '">' + esc(f.label) + '</span>';
+    var st = familyState(f.id), v = S.data.votes[f.id];
+    out += '<span class="mx-name mx-' + st + '">' + esc(f.label)
+      + (st === "out" ? '<em class="mx-tag">out</em>' : st === "quiet" ? '<em class="mx-tag">no reply</em>' : "") + '</span>';
     DAYS.forEach(function (d) { SLOTS.forEach(function (s) {
-      out += '<span class="mx-cell' + (v && v.avail[d.id].indexOf(s.id) > -1 ? " on" : "") + '"></span>';
+      var on = st === "in" && v.avail[d.id].indexOf(s.id) > -1;
+      out += '<span class="mx-cell mx-c-' + st + (on ? " on" : "") + '"></span>';
     }); });
   });
-  var voted = FAMILIES.filter(function (f) { return S.data.votes[f.id]; });
-  var waiting = FAMILIES.filter(function (f) { return !S.data.votes[f.id]; });
-  out += '</div><p class="caption"><i>Fig. 1</i> \u2014 free blocks by family, Saturday and Sunday. '
-    + voted.length + " of " + FAMILIES.length + " families in"
-    + (waiting.length ? "; waiting on " + esc(waiting.map(function (f) { return f.label; }).join(", ")) + "." : "; everyone\u2019s voted.") + '</p></section>';
+  var g = byState();
+  var bits = [g.in.length + " of " + FAMILIES.length + " families in"];
+  if (g.out.length) bits.push(esc(names(g.out)) + (g.out.length === 1 ? " is" : " are") + " out this weekend");
+  if (g.quiet.length) bits.push("still waiting on " + esc(names(g.quiet)));
+  else if (!g.quiet.length) bits.push("everyone\u2019s replied");
+  out += '</div><p class="caption"><i>Fig. 1</i> \u2014 free blocks by family. ' + bits.join(" \u00b7 ") + '.</p></section>';
   out += '<section class="block tools">'
     + '<button class="ghost' + (S.confirming === "mine" ? " live" : "") + '" id="clear-mine">Clear our vote</button>'
     + '<button class="ghost' + (S.confirming === "all" ? " live" : "") + '" id="clear-all">' + (S.confirming === "all" ? "Reset every family" : "Start over") + '</button>'
@@ -1782,6 +1842,11 @@ document.addEventListener("click", function (e) {
     });
     return;
   }
+  if (t.id === "sit-out") {
+    apply(function () { var m = ensureMine(); m.out = true; m.avail = { sat: [], sun: [] }; m.picks = []; });
+    return;
+  }
+  if (t.id === "back-in") { apply(function () { ensureMine().out = false; }); return; }
   if (t.id === "clear-mine") {
     if (S.confirming !== "mine") { S.confirming = "mine"; render(); return; }
     S.confirming = null; apply(function () { delete S.data.votes[S.me]; }); return;
