@@ -590,9 +590,11 @@ function normalize(raw) {
     if (!FAM[fid] || !sp[fid] || !sp[fid].name) return;
     out.spots[fid] = {
       name: String(sp[fid].name).slice(0, 80),
+      sub: sp[fid].sub ? String(sp[fid].sub).slice(0, 90) : null,
       lat: typeof sp[fid].lat === "number" ? sp[fid].lat : null,
       lon: typeof sp[fid].lon === "number" ? sp[fid].lon : null,
-      host: !!sp[fid].host
+      host: !!sp[fid].host,
+      act: sp[fid].act ? String(sp[fid].act) : null
     };
   });
   if (raw && Array.isArray(raw.activities)) {
@@ -717,11 +719,21 @@ function flush() {
   Promise.all(jobs).then(function () { dirty = false; setStatus("ok"); })
     .catch(function () { dirty = false; setStatus("error"); });
 }
-function setSpot(name, lat, lon, host) {
+function leadActivityId() {
+  var rows = tally();
+  return rows[0] ? rows[0].activity.id : null;
+}
+function setSpot(name, lat, lon, host, sub) {
   if (!S.me) return;
+  var act = leadActivityId();
   apply(function () {
     if (!S.data.spots) S.data.spots = {};
-    S.data.spots[S.me] = { name: name, lat: typeof lat === "number" ? lat : null, lon: typeof lon === "number" ? lon : null, host: !!host };
+    S.data.spots[S.me] = {
+      name: name, sub: sub || null,
+      lat: typeof lat === "number" ? lat : null,
+      lon: typeof lon === "number" ? lon : null,
+      host: !!host, act: act
+    };
   });
   pendingSpot = true;
 }
@@ -825,10 +837,20 @@ function photoCountFor(week) {
   return m ? Object.keys(m).length : 0;
 }
 
+/* Search by name so Google resolves the actual business page (photos, hours,
+   reviews). Coordinates alone just drop an unnamed pin. Address narrows it
+   down when we have one; bare coordinates are the last resort. */
 function mapsUrl(entry) {
-  if (entry && entry.lat && entry.lon) return "https://www.google.com/maps/search/?api=1&query=" + entry.lat + "," + entry.lon;
-  var name = entry && (entry.venue || entry.name);
-  return name ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(name) : null;
+  if (!entry) return null;
+  var name = entry.venue || entry.name;
+  if (name) {
+    var q = name;
+    if (entry.sub) q += ", " + entry.sub;
+    else if (entry.lat && entry.lon) q += " near " + entry.lat.toFixed(4) + "," + entry.lon.toFixed(4);
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+  }
+  if (entry.lat && entry.lon) return "https://www.google.com/maps/search/?api=1&query=" + entry.lat + "," + entry.lon;
+  return null;
 }
 /* komoot's public Photon instance: open data, no key, built for type-ahead */
 function searchPlaces(q) {
@@ -984,12 +1006,14 @@ function spotsForActivity(name) {
   out.sort(function (a, b) { return a.last > b.last ? 1 : -1; });  // longest since last visit first
   return out;
 }
-function spotTally() {
+function spotTally(actId) {
   var counts = {}, order = [];
   var spots = (S.data && S.data.spots) || {};
   Object.keys(spots).forEach(function (fid) {
+    if (actId && spots[fid].act && spots[fid].act !== actId) return;   // backed for a different activity
+    if (actId && !spots[fid].act) return;                              // legacy entry, don't assume
     var key = spots[fid].name.trim().toLowerCase();
-    if (!counts[key]) { counts[key] = { name: spots[fid].name, lat: spots[fid].lat, lon: spots[fid].lon, host: spots[fid].host, who: [] }; order.push(key); }
+    if (!counts[key]) { counts[key] = { name: spots[fid].name, sub: spots[fid].sub, lat: spots[fid].lat, lon: spots[fid].lon, host: spots[fid].host, who: [] }; order.push(key); }
     counts[key].who.push(fid);
     if (spots[fid].host) counts[key].host = true;
   });
@@ -1128,7 +1152,8 @@ function fetchNewSpots(activity) {
     return (j.elements || []).map(function (el) {
       var t = el.tags || {};
       var lat = el.lat || (el.center && el.center.lat), lon = el.lon || (el.center && el.center.lon);
-      return { name: t.name, lat: lat, lon: lon, kid: kidSignals(t, activity), tags: t };
+      var addr = [t["addr:street"] ? ((t["addr:housenumber"] || "") + " " + t["addr:street"]).trim() : "", t["addr:city"] || ""].filter(Boolean).join(", ");
+      return { name: t.name, sub: addr || null, lat: lat, lon: lon, kid: kidSignals(t, activity), tags: t };
     }).filter(function (v) {
       return v.name && typeof v.lat === "number" && !adultsOnly(v.tags)
         && inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm
@@ -1335,8 +1360,9 @@ function viewSpot() {
   var name = lead.activity.name;
   var kind = kindFor(name);
   var homesOnly = !!kind.homesOnly;
-  var backed = spotTally();
-  var mine = (S.data.spots || {})[S.me];
+  var backed = spotTally(lead.activity.id);
+  var mineRaw = (S.data.spots || {})[S.me];
+  var mine = (mineRaw && mineRaw.act === lead.activity.id) ? mineRaw : null;
   var history = spotsForActivity(name).filter(function (v) {
     if (backed.some(function (b) { return b.name.toLowerCase() === v.name.toLowerCase(); })) return false;
     if (!kind.homesOnly) return true;
@@ -1392,20 +1418,23 @@ function viewSpot() {
       + '<p class="find-name">' + esc(dv.name) + '</p>'
       + (dv.kid.length ? '<p class="find-tags">' + dv.kid.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join("") + '</p>' : "")
       + '<p class="find-dist">' + kmFrom(dv.lat, dv.lon).toFixed(0) + ' km from the middle of everyone</p>'
-      + '<div class="row-btns"><button class="primary" data-spot="' + esc(dv.name) + '" data-lat="' + dv.lat + '" data-lon="' + dv.lon + '">Back this</button>'
+      + '<div class="row-btns"><button class="primary" data-spot="' + esc(dv.name) + '" data-lat="' + dv.lat + '" data-lon="' + dv.lon + '"'
+      + (dv.sub ? ' data-sub="' + esc(dv.sub) + '"' : "") + '>Back this</button>'
       + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
       + (S.discovering ? "Looking\u2026" : "Try another") + '</button>'
       + (dml ? '<a class="ghost" href="' + esc(dml) + '" target="_blank" rel="noopener">Reviews</a>' : "")
       + '</div><p class="tiny">Ratings aren\u2019t in the map data \u2014 the Reviews link opens it in Google Maps.</p></div>';
   }
 
-  var canHost = !mine || !mine.host;
+  var hosting = !!(mine && mine.host);
   out += '<p class="note" style="margin-top:16px">'
-    + (canHost ? (homesOnly ? 'Got the space for it? ' : 'Happy to have everyone at yours? ')
-               : 'You\u2019ve offered to host. ')
-    + '<button class="link" id="offer-host">' + (canHost ? "Offer to host" : "Withdraw the offer") + '</button>'
-    + '<br />Only you can put your place on the list \u2014 nobody else can volunteer you'
-    + (homesOnly ? ", and there\u2019s no expectation anyone will." : ".") + '</p>';
+    + (hosting
+        ? 'You\u2019ve offered to host <b>' + esc(name.toLowerCase()) + '</b>. '
+        : (homesOnly ? 'Got the space for it? ' : 'Happy to have everyone at yours? '))
+    + '<button class="link" id="offer-host">'
+    + (hosting ? "Withdraw the offer" : "Offer to host " + name.toLowerCase()) + '</button>'
+    + '<br />Offers apply to this activity only \u2014 and only you can put your place forward'
+    + (homesOnly ? ", with no expectation anyone will." : ".") + '</p>';
 
   return out + '</section>';
 }
@@ -1909,7 +1938,7 @@ document.addEventListener("click", function (e) {
   if (d.sugg !== undefined) {
     var pick = (S.suggestions || [])[Number(d.sugg)];
     if (pick && document.getElementById("s-venue")) {
-      setSpot(pick.name, pick.lat, pick.lon, false);
+      setSpot(pick.name, pick.lat, pick.lon, false, pick.sub || null);
       S.spotQuery = ""; S.suggestions = [];
       render(); return;
     }
@@ -1974,12 +2003,13 @@ document.addEventListener("click", function (e) {
 
   /* ---- feed ---- */
   if (d.year) { S.statYear = d.year; render(); return; }
-  if (d.spot) { setSpot(d.spot, d.lat ? Number(d.lat) : null, d.lon ? Number(d.lon) : null, false); S.discovered = null; render(); return; }
+  if (d.spot) { setSpot(d.spot, d.lat ? Number(d.lat) : null, d.lon ? Number(d.lon) : null, false, d.sub || null); S.discovered = null; render(); return; }
   if (t.id === "clear-spot") { clearSpot(); render(); return; }
   if (t.id === "offer-host") {
     var cur = (S.data.spots || {})[S.me];
-    if (cur && cur.host) clearSpot();
-    else setSpot(FAM[S.me].label + "\u2019s place", null, null, true);
+    var leadId = leadActivityId();
+    if (cur && cur.host && cur.act === leadId) clearSpot();
+    else setSpot(FAM[S.me].label + "\u2019s place", null, null, true, null);
     render(); return;
   }
   if (d.find) {
@@ -2006,7 +2036,7 @@ document.addEventListener("click", function (e) {
     var pool = spotsForActivity(actName);
     if (!pool.length) pool = spotsForActivity(null);
     var hit = rouletteFrom(pool);
-    if (hit) { setSpot(hit.name, hit.lat, hit.lon, false); }
+    if (hit) { setSpot(hit.name, hit.lat, hit.lon, false, hit.sub || null); }
     S.discovered = null; S.discoverMsg = hit ? null : "No past places for this yet \u2014 try \u201cSomewhere new\u201d.";
     render(); return;
   }
