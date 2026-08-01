@@ -1023,9 +1023,16 @@ function milestones() {
 /* Places we've used before for this activity, freshest-need first. */
 function spotsForActivity(name) {
   var st = venueStats(), out = [];
+  var kindId = kindFor(name).id;
   Object.keys(st).forEach(function (k) {
     var v = st[k];
-    if (!name || !v.activity || v.activity === name) out.push(v);
+    if (name) {
+      /* Only places actually used for this activity, and never one whose name
+         says it's something else (a beach is not a coffee shop). */
+      if (v.activity !== name) return;
+      if (!nameFits(v.name, kindId)) return;
+    }
+    out.push(v);
   });
   out.sort(function (a, b) { return a.last > b.last ? 1 : -1; });  // longest since last visit first
   return out;
@@ -1498,7 +1505,7 @@ function viewSpot() {
   }
 
   out += '<div class="row-btns" style="margin-top:16px">'
-    + (homesOnly ? "" : '<button class="ghost" id="roulette">Somewhere we\u2019ve been</button>'
+    + (homesOnly || !spotsForActivity(name).length ? "" : '<button class="ghost" id="roulette">Somewhere we\u2019ve been</button>'
         + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
         + (S.discovering ? "Looking\u2026" : "Somewhere new") + '</button>')
     + (mine ? '<button class="ghost" id="clear-spot">Clear my pick</button>' : "")
@@ -2137,10 +2144,11 @@ document.addEventListener("click", function (e) {
     var rows0 = tally();
     var actName = rows0[0] ? rows0[0].activity.name : null;
     var pool = spotsForActivity(actName);
-    if (!pool.length) pool = spotsForActivity(null);
-    var hit = rouletteFrom(pool);
+    var hit = pool.length ? rouletteFrom(pool) : null;
     if (hit) { setSpot(hit.name, hit.lat, hit.lon, false, hit.sub || null); }
-    S.discovered = null; S.discoverMsg = hit ? null : "No past places for this yet \u2014 try \u201cSomewhere new\u201d.";
+    S.discovered = null;
+    S.discoverMsg = hit ? null
+      : "You haven\u2019t logged anywhere for " + (actName || "this").toLowerCase() + " yet \u2014 try \u201cSomewhere new\u201d.";
     render(); return;
   }
   if (t.id === "backup") { exportBackup(false); return; }
