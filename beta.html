@@ -257,8 +257,47 @@ html, body { margin: 0; padding: 0; }
 .lightbox img { max-width: 100%; max-height: 76vh; object-fit: contain; }
 .lightbox p { color: #EDE6D8; font-size: 14px; margin: 14px 0 0; text-align: center; max-width: 40ch; }
 .lightbox .meta { font-family: var(--util); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #A79A82; margin-top: 5px; }
-.lightbox button { position: absolute; top: 14px; right: 16px; font-size: 26px; color: #EDE6D8; line-height: 1; padding: 6px 10px; }
+.lightbox button { position: absolute; top: 16px; right: 16px; width: 42px; height: 42px; font: 400 26px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #FBF6EA; background: rgba(20,18,15,.55); border: 1px solid rgba(251,246,234,.45); border-radius: 50%;
+  -webkit-appearance: none; appearance: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.lightbox button:active { background: rgba(251,246,234,.2); }
 .more-row { text-align: center; margin-top: 18px; }
+
+/* ---- month grid ---- */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cal-nav b { font-family: var(--display); font-size: 24px; font-weight: 400; }
+.cal-nav button { padding: 8px 14px; font-family: var(--util); font-size: 14px; color: var(--ink-45); border: 1px solid var(--hair); }
+.cal-nav button:hover { color: var(--claret); border-color: var(--claret); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); }
+.cal-grid > * { background: var(--sheet); }
+.cal-dow { font-family: var(--util); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-45); text-align: center; padding: 7px 0; }
+.cal-day { position: relative; min-height: 52px; padding: 5px 0 0; font-family: var(--util); font-size: 12px; color: var(--ink-70); text-align: center; }
+.cal-day.blank { background: rgba(176,148,96,.05); }
+.cal-day.today { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.cal-day.has { cursor: pointer; }
+.cal-day.has .dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--claret); margin: 5px auto 0; }
+.cal-day.has .mini { display: block; font-size: 8.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--claret); margin-top: 3px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-day.has:hover { background: rgba(176,148,96,.12); }
+
+/* ---- day detail ---- */
+.detail-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+.detail-date { font-family: var(--util); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-45); }
+.detail-what { font-family: var(--display); font-size: clamp(26px, 6vw, 38px); font-weight: 400; line-height: 1.05; margin: 6px 0 10px; }
+.detail-venue { font-size: 16px; color: var(--claret); margin: 0 0 4px; }
+.detail-venue a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.map-link { font-family: var(--util); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; margin-left: 8px; }
+.detail-who { font-size: 14px; color: var(--ink-70); margin: 10px 0 0; line-height: 1.5; }
+
+/* ---- venue suggestions ---- */
+.suggest { border: 1px solid var(--hair); border-top: none; max-height: 230px; overflow-y: auto; }
+.suggest:empty { border: none; }
+.suggest button { display: block; width: 100%; text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--hair-soft); font-size: 14px; }
+.suggest button:last-child { border-bottom: none; }
+.suggest button:hover { background: rgba(176,148,96,.1); }
+.suggest .s-name { display: block; }
+.suggest .s-sub { display: block; font-size: 11.5px; color: var(--ink-45); margin-top: 2px; }
+.suggest .s-past { color: var(--claret); }
 
 /* ---- calendar ---- */
 .month { font-family: var(--util); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-45); margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--ink); }
@@ -589,10 +628,11 @@ function venueStats() {
     if (!e || !e.venue) return;
     var key = String(e.venue).trim().toLowerCase();
     if (!key) return;
-    if (!out[key]) out[key] = { name: e.venue, activity: e.activityName || "", count: 0, last: wk, first: wk, who: {} };
+    if (!out[key]) out[key] = { name: e.venue, activity: e.activityName || "", count: 0, last: wk, first: wk, who: {}, lat: e.lat || null, lon: e.lon || null };
     var v = out[key];
     v.count++;
-    if (wk > v.last) { v.last = wk; v.name = e.venue; v.activity = e.activityName || v.activity; }
+    if (wk > v.last) { v.last = wk; v.name = e.venue; v.activity = e.activityName || v.activity; if (e.lat) { v.lat = e.lat; v.lon = e.lon; } }
+    if (!v.lat && e.lat) { v.lat = e.lat; v.lon = e.lon; }
     if (wk < v.first) v.first = wk;
     (e.who || []).forEach(function (f) { v.who[f] = (v.who[f] || 0) + 1; });
   });
@@ -617,6 +657,87 @@ function photoList() {
 function photoCountFor(week) {
   var m = (S.photoMeta || {})[week];
   return m ? Object.keys(m).length : 0;
+}
+
+function mapsUrl(entry) {
+  if (entry && entry.lat && entry.lon) return "https://www.google.com/maps/search/?api=1&query=" + entry.lat + "," + entry.lon;
+  var name = entry && (entry.venue || entry.name);
+  return name ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(name) : null;
+}
+/* komoot's public Photon instance: open data, no key, built for type-ahead */
+function searchPlaces(q) {
+  var u = "https://photon.komoot.io/api/?limit=6&lang=en&q=" + encodeURIComponent(q);
+  var bias = ls("bagel:near");
+  if (bias && /^-?[\d.]+,-?[\d.]+$/.test(bias)) {
+    var c = bias.split(",");
+    u += "&lat=" + c[0] + "&lon=" + c[1];
+  }
+  return fetch(u).then(function (r) { return r.json(); }).then(function (j) {
+    return (j.features || []).map(function (f) {
+      var pr = f.properties || {}, co = (f.geometry || {}).coordinates || [];
+      return {
+        name: pr.name || pr.street || "",
+        sub: [pr.street && pr.name !== pr.street ? pr.street : "", pr.city || pr.county || "", pr.state || ""].filter(Boolean).join(", "),
+        lat: co[1], lon: co[0]
+      };
+    }).filter(function (x) { return x.name; });
+  }).catch(function () { return []; });
+}
+function pastVenues() {
+  var st = venueStats();
+  return Object.keys(st).map(function (k) { return st[k]; });
+}
+function paintSuggest(items) {
+  var box = document.getElementById("venue-suggest");
+  if (!box) return;
+  box.innerHTML = items.map(function (it, i) {
+    return '<button data-sugg="' + i + '"><span class="s-name' + (it.past ? " s-past" : "") + '">' + esc(it.name)
+      + '</span>' + (it.sub ? '<span class="s-sub">' + esc(it.sub) + '</span>' : "") + '</button>';
+  }).join("");
+  S.suggestions = items;
+}
+var venueTimer = null;
+function onVenueType(q) {
+  if (venueTimer) clearTimeout(venueTimer);
+  var term = (q || "").trim();
+  var past = pastVenues().filter(function (v) { return !term || v.name.toLowerCase().indexOf(term.toLowerCase()) > -1; })
+    .slice(0, 4).map(function (v) { return { name: v.name, sub: "been here " + v.count + "\u00d7", lat: v.lat, lon: v.lon, past: true }; });
+  paintSuggest(past);
+  if (term.length < 3) return;
+  venueTimer = setTimeout(function () {
+    searchPlaces(term).then(function (hits) {
+      var seen = {};
+      past.forEach(function (p2) { seen[p2.name.toLowerCase()] = 1; });
+      paintSuggest(past.concat(hits.filter(function (h) { return !seen[h.name.toLowerCase()]; })));
+    });
+  }, 350);
+}
+
+function download(name, text) {
+  try {
+    var blob = new Blob([text], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    return true;
+  } catch (e) { return false; }
+}
+function exportBackup(withPhotos) {
+  setStatus("saving");
+  var stamp = iso(new Date());
+  if (withPhotos) {
+    return req("GET", "/").then(function (all) {
+      download("everything-bagel-full-" + stamp + ".json", JSON.stringify(all || {}));
+      setStatus("ok");
+    }).catch(function () { setStatus("error"); });
+  }
+  return Promise.all([req("GET", "/weekends"), req("GET", "/log"), req("GET", "/photoMeta")])
+    .then(function (r) {
+      download("everything-bagel-" + stamp + ".json", JSON.stringify({ weekends: r[0], log: r[1], photoMeta: r[2] }));
+      setStatus("ok");
+    }).catch(function () { setStatus("error"); });
 }
 
 /* ---------- chrome ---------- */
@@ -824,25 +945,39 @@ function viewRecapBar() {
     + '<button class="ghost" data-recap="' + wk + '">Log it</button>'
     + '<button class="ghost" id="skip-recap">Not this time</button></div>';
 }
+function captureRecap() {
+  var a = document.getElementById("r-act"), o = document.getElementById("r-act-other"),
+      v = document.getElementById("r-venue"), d = document.getElementById("r-day");
+  if (!a) return;
+  S.recapDraft = {
+    act: a.value, other: o ? o.value : "", venue: v ? v.value : "", day: d ? d.value : "sat"
+  };
+}
 function viewRecapForm() {
   var wk = S.recap, e = (S.log && S.log[wk]) || {};
+  var draft = S.recapDraft || {};
   var d = fromIso(wk);
-  var wkData = S.recapSource || { activities: S.data.activities, votes: {} };
-  var acts = wkData.activities.length ? wkData.activities : S.data.activities;
-  var venues = Object.keys(venueStats()).map(function (k) { return venueStats()[k].name; });
+  var wkData = S.recapSource || { activities: S.data.activities };
+  var acts = wkData.activities && wkData.activities.length ? wkData.activities : S.data.activities;
+  var curAct = draft.act !== undefined ? draft.act : (e.activityName || (acts[0] && acts[0].name));
+  var isOther = curAct === "__other" || (curAct && acts.every(function (a) { return a.name !== curAct; }));
+  var otherVal = draft.other !== undefined ? draft.other : (isOther ? (e.activityName || "") : "");
+  var venueVal = draft.venue !== undefined ? draft.venue : (e.venue || "");
+  var dayVal = draft.day || e.day || "sat";
   var chosenWho = S.recapWho || [];
   return '<section class="block"><h3 class="rule-head"><span>Weekend of '
     + d.toLocaleDateString("en-US", { month: "long", day: "numeric" }) + '</span></h3>'
     + '<div class="field"><label>What did you do?</label><select id="r-act">'
-    + acts.map(function (a) { return '<option value="' + esc(a.name) + '"' + (e.activityName === a.name ? " selected" : "") + '>' + esc(a.name) + '</option>'; }).join("")
-    + '<option value="__other"' + (e.activityName && acts.every(function (a) { return a.name !== e.activityName; }) ? " selected" : "") + '>Something else\u2026</option>'
-    + '</select></div>'
-    + '<div class="field"><label>Or type it</label><input id="r-act-other" placeholder="Only if you picked Something else" value="'
-    + esc(e.activityName && acts.every(function (a) { return a.name !== e.activityName; }) ? e.activityName : "") + '" /></div>'
-    + '<div class="field"><label>Where?</label><input id="r-venue" list="venue-list" placeholder="Name of the place" value="' + esc(e.venue || "") + '" />'
-    + '<datalist id="venue-list">' + venues.map(function (v) { return '<option value="' + esc(v) + '"></option>'; }).join("") + '</datalist></div>'
+    + acts.map(function (a) { return '<option value="' + esc(a.name) + '"' + (!isOther && a.name === curAct ? " selected" : "") + '>' + esc(a.name) + '</option>'; }).join("")
+    + '<option value="__other"' + (isOther ? " selected" : "") + '>Something else\u2026</option></select></div>'
+    + '<div class="field"><label>Or type it</label><input id="r-act-other" placeholder="Only if you picked Something else" value="' + esc(otherVal) + '" /></div>'
+    + '<div class="field"><label>Where?</label>'
+    + '<input id="r-venue" autocomplete="off" placeholder="Start typing a place" value="' + esc(venueVal) + '" />'
+    + '<div class="suggest" id="venue-suggest"></div>'
+    + (S.recapVenue && S.recapVenue.lat ? '<p class="tiny">Pinned on the map \u2014 the calendar entry will link straight to it.</p>' : "")
+    + '</div>'
     + '<div class="field"><label>Which day</label><select id="r-day">'
-    + DAYS.map(function (dd) { return '<option value="' + dd.id + '"' + (e.day === dd.id ? " selected" : "") + '>' + dd.label + '</option>'; }).join("") + '</select></div>'
+    + DAYS.map(function (dd) { return '<option value="' + dd.id + '"' + (dayVal === dd.id ? " selected" : "") + '>' + dd.label + '</option>'; }).join("") + '</select></div>'
     + '<div class="field"><label>Who came?</label><div class="who-grid">'
     + FAMILIES.map(function (f) { return '<button data-who="' + f.id + '" class="' + (chosenWho.indexOf(f.id) > -1 ? "on" : "") + '">' + esc(f.label) + '</button>'; }).join("")
     + '</div></div>'
@@ -879,33 +1014,78 @@ function viewFeed() {
   if (shots.length > S.feedShown) out += '<div class="more-row"><button class="ghost" id="more-shots">Show more</button></div>';
   return out + '</section>';
 }
+function entryDate(week, day) {
+  var d = fromIso(week);
+  return day === "sun" ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) : d;
+}
+function entriesByDate() {
+  var map = {};
+  logEntries().forEach(function (e) { map[iso(entryDate(e.week, e.day))] = e; });
+  return map;
+}
 function viewCalendar() {
   if (!S.log) return '<section class="block"><p class="empty">Loading\u2026</p></section>';
-  var entries = logEntries(), out = "";
-  out += '<section class="block"><h3 class="rule-head"><span>What we did</span></h3>';
-  if (!entries.length) {
-    out += '<p class="empty">Nothing logged yet. After a weekend, write it up from the Poll tab \u2014 or use the button below \u2014 and it lands here.</p>';
+  if (S.dayDetail) return viewDayDetail();
+
+  var cur = S.calMonth ? fromIso(S.calMonth) : new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+  var year = cur.getFullYear(), month = cur.getMonth();
+  var first = new Date(year, month, 1), lastDay = new Date(year, month + 1, 0).getDate();
+  var byDate = entriesByDate();
+  var out = '<section class="block"><div class="cal-nav">'
+    + '<button data-month="' + iso(new Date(year, month - 1, 1)) + '">\u2039</button>'
+    + '<b>' + first.toLocaleDateString("en-US", { month: "long", year: "numeric" }) + '</b>'
+    + '<button data-month="' + iso(new Date(year, month + 1, 1)) + '">\u203a</button></div>';
+  out += '<div class="cal-grid">';
+  ["S","M","T","W","T","F","S"].forEach(function (l) { out += '<span class="cal-dow">' + l + '</span>'; });
+  for (var b = 0; b < first.getDay(); b++) out += '<span class="cal-day blank"></span>';
+  for (var day = 1; day <= lastDay; day++) {
+    var key = iso(new Date(year, month, day));
+    var e = byDate[key];
+    var isToday = key === iso(TODAY);
+    out += '<' + (e ? 'button' : 'span') + ' class="cal-day' + (e ? " has" : "") + (isToday ? " today" : "") + '"'
+      + (e ? ' data-day="' + key + '"' : "") + '>' + day
+      + (e ? '<span class="dot"></span><span class="mini">' + esc((e.activityName || "").split(" ")[0]) + '</span>' : "")
+      + '</' + (e ? 'button' : 'span') + '>';
   }
-  var lastMonth = "";
-  entries.forEach(function (e) {
-    var d = fromIso(e.week);
-    var month = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    if (month !== lastMonth) { out += '<p class="month">' + month + '</p>'; lastMonth = month; }
-    var dayDate = e.day === "sun" ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) : d;
-    var n = photoCountFor(e.week);
-    out += '<div class="entry"><div class="entry-date"><b>' + dayDate.getDate() + '</b><span>'
-      + dayDate.toLocaleDateString("en-US", { weekday: "short" }) + '</span></div><div class="entry-body">'
-      + '<p class="entry-what">' + esc(e.activityName || "Got together") + '</p>'
-      + (e.venue ? '<p class="entry-where">' + esc(e.venue) + '</p>' : "")
-      + '<p class="entry-who">' + ((e.who || []).length ? (e.who || []).map(function (f) { return FAM[f] ? esc(FAM[f].label) : ""; }).join(" \u00b7 ") : "Nobody recorded") + '</p>'
-      + (n ? '<p class="entry-shots">' + n + ' photo' + (n === 1 ? "" : "s") + '</p>' : "")
-      + '<button class="link" data-recap="' + e.week + '">edit</button>'
-      + '</div></div>';
-  });
-  out += '<div class="row-btns" style="margin-top:18px"><button class="ghost" data-recap="' + iso(PREV) + '">Log last weekend</button>'
+  out += '</div>';
+  var count = Object.keys(byDate).filter(function (k) { return fromIso(k).getMonth() === month && fromIso(k).getFullYear() === year; }).length;
+  out += '<p class="note">' + (count ? count + " get-together" + (count === 1 ? "" : "s") + " this month. Tap a marked day for the details."
+    : "Nothing logged this month yet.") + '</p>';
+  out += '<div class="row-btns" style="margin-top:16px"><button class="ghost" data-recap="' + iso(PREV) + '">Log last weekend</button>'
     + '<button class="ghost" data-recap="' + WEEK + '">Log this weekend</button></div>';
   return out + '</section>';
 }
+function viewDayDetail() {
+  var e = entriesByDate()[S.dayDetail];
+  if (!e) { S.dayDetail = null; return viewCalendar(); }
+  var d = fromIso(S.dayDetail);
+  var link = mapsUrl(e);
+  var shots = photoList().filter(function (p) { return p.week === e.week; });
+  var out = '<section class="block"><button class="link" id="back-cal">\u2039 back to the month</button>'
+    + '<p class="detail-date" style="margin-top:14px">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + '</p>'
+    + '<h2 class="detail-what">' + esc(e.activityName || "Got together") + '</h2>';
+  if (e.venue) {
+    out += '<p class="detail-venue">' + esc(e.venue)
+      + (link ? '<a class="map-link" href="' + esc(link) + '" target="_blank" rel="noopener">open in maps</a>' : "") + '</p>';
+  }
+  out += '<p class="detail-who">' + ((e.who || []).length
+    ? (e.who || []).map(function (f) { return FAM[f] ? esc(FAM[f].label) : ""; }).filter(Boolean).join(" \u00b7 ")
+    : "Nobody recorded") + '</p>';
+  out += '<div class="row-btns" style="margin-top:18px"><button class="ghost" data-recap="' + e.week + '">Edit</button></div></section>';
+
+  out += '<section class="block"><h3 class="rule-head"><span>Photos from that weekend</span></h3>';
+  if (!shots.length) {
+    out += '<p class="empty">None yet. Add some from the Feed tab and pick this weekend.</p>';
+  } else {
+    out += '<div class="feed">' + shots.map(function (p) {
+      var have = S.photoData[p.id];
+      return '<div class="shot' + (have ? "" : " pending") + '" data-shot="' + esc(p.id) + '" data-open="' + esc(p.id) + '">'
+        + (have ? '<img src="' + have + '" alt="" />' : "") + '</div>';
+    }).join("") + '</div>';
+  }
+  return out + '</section>';
+}
+
 function viewPlaces() {
   if (!S.log) return '<section class="block"><p class="empty">Loading\u2026</p></section>';
   var stats = venueStats();
@@ -936,13 +1116,16 @@ function viewPlaces() {
     out += '<table class="places"><thead><tr><th>Place</th><th>Last visit</th><th>Times</th></tr></thead><tbody>';
     keys.forEach(function (k) {
       var v = stats[k];
-      out += '<tr><td><span class="venue">' + esc(v.name) + '</span>'
+      var ml = mapsUrl(v);
+      out += '<tr><td><span class="venue">' + esc(v.name)
+        + (ml ? ' <a class="map-link" href="' + esc(ml) + '" target="_blank" rel="noopener">map</a>' : "") + '</span>'
         + (v.activity ? '<span class="venue-sub">' + esc(v.activity) + '</span>' : "") + '</td>'
         + '<td>' + agoText(v.last) + '</td><td><span class="num">' + v.count + '</span></td></tr>';
     });
     out += '</tbody></table></section>';
 
-    var stale = keys.filter(function (k) { return (new Date() - fromIso(stats[k].last)) / 86400000 > 60; });
+    var staleKeys = keys;
+    var stale = staleKeys.filter(function (k) { return (new Date() - fromIso(stats[k].last)) / 86400000 > 60; });
     if (stale.length) {
       stale.sort(function (a, b) { return stats[a].last > stats[b].last ? 1 : -1; });
       out += '<section class="block stale"><h3 class="rule-head"><span>Overdue for a return</span></h3><ul>'
@@ -950,6 +1133,11 @@ function viewPlaces() {
         + '</ul></section>';
     }
   }
+  out += '<section class="block"><h3 class="rule-head"><span>Housekeeping</span></h3>'
+    + '<div class="row-btns"><button class="ghost" id="backup">Download a backup</button>'
+    + '<button class="ghost" id="backup-full">Backup with photos</button></div>'
+    + '<p class="note">The first is small \u2014 every vote, weekend log and photo caption, but not the images themselves. '
+    + 'The second includes the photos and can run to tens of megabytes. Worth grabbing one before any update to the page.</p></section>';
   return out;
 }
 function viewLightbox() {
@@ -1011,11 +1199,19 @@ function render() {
   if (S.view === "feed") {
     photoList().slice(0, S.feedShown).forEach(function (p) { loadPhoto(p.id); });
   }
+  if (S.view === "calendar" && S.dayDetail) {
+    var e2 = entriesByDate()[S.dayDetail];
+    if (e2) photoList().filter(function (p) { return p.week === e2.week; }).forEach(function (p) { loadPhoto(p.id); });
+  }
 }
 
 /* ---------- events ---------- */
 document.addEventListener("input", function (e) {
   if (e.target.id === "new-name") pendingName = e.target.value;
+  if (e.target.id === "r-venue") { S.recapVenue = null; onVenueType(e.target.value); }
+});
+document.addEventListener("focusin", function (e) {
+  if (e.target.id === "r-venue") onVenueType(e.target.value);
 });
 document.getElementById("photo-input").addEventListener("change", function (e) {
   if (e.target.files && e.target.files.length) uploadPhotos(e.target.files);
@@ -1092,7 +1288,7 @@ document.addEventListener("click", function (e) {
 
   /* ---- recap ---- */
   if (d.recap) {
-    S.recap = d.recap;
+    S.recap = d.recap; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null;
     var existing = (S.log && S.log[d.recap]) || null;
     S.recapWho = existing && existing.who ? existing.who.slice() : [];
     S.recapSource = null;
@@ -1110,30 +1306,57 @@ document.addEventListener("click", function (e) {
     render(); return;
   }
   if (d.who) {
+    captureRecap();
     var i2 = S.recapWho.indexOf(d.who);
     if (i2 > -1) S.recapWho.splice(i2, 1); else S.recapWho.push(d.who);
     render(); return;
   }
-  if (t.id === "r-cancel") { S.recap = null; render(); return; }
+  if (d.sugg !== undefined) {
+    var pick = (S.suggestions || [])[Number(d.sugg)];
+    if (pick) {
+      captureRecap();
+      S.recapDraft = S.recapDraft || {};
+      S.recapDraft.venue = pick.name;
+      S.recapVenue = { name: pick.name, lat: pick.lat || null, lon: pick.lon || null };
+      if (pick.lat) ls("bagel:near", pick.lat + "," + pick.lon);
+      S.suggestions = [];
+      render();
+    }
+    return;
+  }
+  if (t.id === "r-cancel") { S.recap = null; S.recapDraft = null; S.recapVenue = null; render(); return; }
+  if (d.month) { S.calMonth = d.month; S.dayDetail = null; render(); return; }
+  if (d.day) { S.dayDetail = d.day; loadPhotoMeta(); render(); return; }
+  if (t.id === "back-cal") { S.dayDetail = null; render(); return; }
   if (t.id === "skip-recap") { S.skipRecap = unloggedWeek(); render(); return; }
   if (t.id === "r-save") {
     var wk = S.recap;
     var sel = document.getElementById("r-act").value;
     var other = (document.getElementById("r-act-other").value || "").trim();
+    var venueText = (document.getElementById("r-venue").value || "").trim();
     var entry = {
       activityName: sel === "__other" ? (other || "Got together") : sel,
-      venue: (document.getElementById("r-venue").value || "").trim(),
+      venue: venueText,
       day: document.getElementById("r-day").value,
       who: S.recapWho.slice(),
       by: S.me, ts: Date.now()
     };
+    if (S.recapVenue && S.recapVenue.name === venueText && S.recapVenue.lat) {
+      entry.lat = S.recapVenue.lat; entry.lon = S.recapVenue.lon;
+    } else {
+      var known = venueStats()[venueText.toLowerCase()];
+      if (known && known.lat) { entry.lat = known.lat; entry.lon = known.lon; }
+    }
     S.log = S.log || {}; S.log[wk] = entry;
-    S.recap = null; S.view = "calendar"; setStatus("saving"); render();
+    S.recap = null; S.recapDraft = null; S.recapVenue = null; S.dayDetail = iso(entryDate(wk, entry.day));
+    S.view = "calendar"; setStatus("saving"); render();
     req("PUT", "/log/" + wk, entry).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
     return;
   }
 
   /* ---- feed ---- */
+  if (t.id === "backup") { exportBackup(false); return; }
+  if (t.id === "backup-full") { exportBackup(true); return; }
   if (t.id === "pick-photos") {
     var sel = document.getElementById("photo-week");
     if (sel) S.photoWeek = sel.value;
