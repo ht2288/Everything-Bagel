@@ -313,6 +313,39 @@ html, body { margin: 0; padding: 0; }
 .entry-shots { font-family: var(--util); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-45); margin-top: 5px; }
 .empty { font-size: 15px; color: var(--ink-45); padding: 10px 0 4px; line-height: 1.6; }
 
+/* ---- year strip ---- */
+.strip { display: grid; grid-template-columns: repeat(26, 1fr); gap: 2px; margin: 4px 0 10px; }
+.strip span { padding-top: 100%; background: rgba(176,148,96,.16); border-radius: 1px; }
+.strip span.on { background: var(--claret); }
+.strip span.now { box-shadow: inset 0 0 0 1.2px var(--ink); }
+
+/* ---- attendance ---- */
+.att li { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--hair-soft); }
+.att ul { list-style: none; margin: 0; padding: 0; }
+.att li:last-child { border-bottom: none; }
+.att-name { flex: 0 0 40%; font-size: 14px; }
+.att-bar { flex: 1; height: 6px; background: rgba(176,148,96,.18); }
+.att-bar span { display: block; height: 100%; background: var(--ink); }
+.att-num { flex: 0 0 auto; font-family: var(--util); font-size: 11px; color: var(--ink-45); min-width: 52px; text-align: right; }
+
+/* ---- seasons ---- */
+.season { padding: 12px 0; border-bottom: 1px solid var(--hair-soft); }
+.season:last-child { border-bottom: none; }
+.season-head { display: flex; align-items: baseline; gap: 8px; }
+.season-name { font-family: var(--util); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-45); }
+.season-top { font-family: var(--display); font-size: 19px; }
+.season-count { margin-left: auto; font-family: var(--util); font-size: 11px; color: var(--ink-45); }
+.season-list { font-size: 12.5px; color: var(--ink-45); margin: 5px 0 0; }
+
+/* ---- milestones ---- */
+.miles ul { list-style: none; margin: 0; padding: 0; }
+.miles li { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--hair-soft); }
+.miles li:last-child { border-bottom: none; }
+.mile-mark { flex: 0 0 auto; width: 7px; height: 7px; background: var(--claret); border-radius: 50%; margin-top: 7px; }
+.mile-body { flex: 1; min-width: 0; }
+.mile-what { font-size: 14.5px; line-height: 1.35; }
+.mile-when { font-family: var(--util); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-45); margin-top: 3px; }
+
 /* ---- places ---- */
 .places { width: 100%; border-collapse: collapse; }
 .places th { font-family: var(--util); font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-45); text-align: left; padding: 0 8px 8px 0; border-bottom: 1px solid var(--ink); font-weight: 400; }
@@ -740,6 +773,74 @@ function exportBackup(withPhotos) {
     }).catch(function () { setStatus("error"); });
 }
 
+var SEASONS = [
+  { id: "winter", label: "Winter", months: [12, 1, 2] },
+  { id: "spring", label: "Spring", months: [3, 4, 5] },
+  { id: "summer", label: "Summer", months: [6, 7, 8] },
+  { id: "fall",   label: "Fall",   months: [9, 10, 11] }
+];
+function seasonOf(week) {
+  var m = fromIso(week).getMonth() + 1;
+  for (var i = 0; i < SEASONS.length; i++) if (SEASONS[i].months.indexOf(m) > -1) return SEASONS[i];
+  return SEASONS[0];
+}
+function seasonBreakdown() {
+  var out = {};
+  SEASONS.forEach(function (sn) { out[sn.id] = { season: sn, total: 0, acts: {} }; });
+  logEntries().forEach(function (e) {
+    var b = out[seasonOf(e.week).id];
+    b.total++;
+    var name = e.activityName || "Got together";
+    b.acts[name] = (b.acts[name] || 0) + 1;
+  });
+  SEASONS.forEach(function (sn) {
+    var b = out[sn.id];
+    b.ranked = Object.keys(b.acts).sort(function (x, y) { return b.acts[y] - b.acts[x] || x.localeCompare(y); });
+  });
+  return out;
+}
+function attendance() {
+  var total = logEntries().length, counts = {};
+  logEntries().forEach(function (e) { (e.who || []).forEach(function (f) { counts[f] = (counts[f] || 0) + 1; }); });
+  return { total: total, counts: counts };
+}
+function longestStreak() {
+  var weeks = logEntries().map(function (e) { return e.week; }).sort();
+  var best = 0, run = 0, prev = null;
+  weeks.forEach(function (w) {
+    if (prev && iso(shiftWeeks(fromIso(prev), 1)) === w) run++; else run = 1;
+    if (run > best) best = run;
+    prev = w;
+  });
+  return best;
+}
+/* Milestones are derived, never stored — recomputed from the log each time. */
+function milestones() {
+  var out = [];
+  var entries = logEntries().slice().reverse(); // oldest first
+  var venueSeen = {}, allFiveBefore = false, run = 0, prev = null, bestRun = 0;
+  entries.forEach(function (e, idx) {
+    var n = idx + 1;
+    if ([1, 10, 25, 50, 100].indexOf(n) > -1) {
+      out.push({ week: e.week, text: n === 1 ? "The first weekend on the board." : n + " weekends together." });
+    }
+    if (e.venue) {
+      var k = e.venue.trim().toLowerCase();
+      venueSeen[k] = (venueSeen[k] || 0) + 1;
+      if (venueSeen[k] === 1) out.push({ week: e.week, text: "First time at " + e.venue + "." });
+      else if ([5, 10, 20, 25].indexOf(venueSeen[k]) > -1) out.push({ week: e.week, text: venueSeen[k] + " visits to " + e.venue + "." });
+    }
+    if ((e.who || []).length === FAMILIES.length) {
+      out.push({ week: e.week, text: allFiveBefore ? "All five families out together again." : "All five families, for the first time." });
+      allFiveBefore = true;
+    }
+    if (prev && iso(shiftWeeks(fromIso(prev), 1)) === e.week) run++; else run = 1;
+    if (run > bestRun && run >= 3) { bestRun = run; out.push({ week: e.week, text: run + " weekends in a row." }); }
+    prev = e.week;
+  });
+  return out.reverse().slice(0, 12);
+}
+
 /* ---------- chrome ---------- */
 function setStatus(s) {
   S.status = s;
@@ -826,7 +927,7 @@ function viewSetup() {
     + '<p class="tiny">Anyone with the finished link can read and write \u2014 there are no accounts. Fine for a group chat; don\u2019t put anything private in it.</p></section>';
 }
 function viewNav() {
-  var tabs = [ ["poll", "Poll"], ["feed", "Feed"], ["calendar", "Calendar"], ["places", "Places"] ];
+  var tabs = [ ["poll", "Poll"], ["feed", "Feed"], ["calendar", "Calendar"], ["places", "Stats"] ];
   var shots = photoList().length;
   return '<nav class="nav">' + tabs.map(function (t) {
     var extra = t[0] === "feed" && shots ? '<span class="tag">' + shots + '</span>' : "";
@@ -1088,26 +1189,82 @@ function viewDayDetail() {
 
 function viewPlaces() {
   if (!S.log) return '<section class="block"><p class="empty">Loading\u2026</p></section>';
+  var entries = logEntries();
   var stats = venueStats();
   var keys = Object.keys(stats);
-  var entries = logEntries();
   var out = "";
 
-  var actCount = {};
-  entries.forEach(function (e) { if (e.activityName) actCount[e.activityName] = (actCount[e.activityName] || 0) + 1; });
-  var topAct = Object.keys(actCount).sort(function (a, b) { return actCount[b] - actCount[a]; })[0];
-  var attend = {};
-  entries.forEach(function (e) { (e.who || []).forEach(function (f) { attend[f] = (attend[f] || 0) + 1; }); });
-  var mostLoyal = FAMILIES.slice().sort(function (a, b) { return (attend[b.id] || 0) - (attend[a.id] || 0); })[0];
+  /* ---- headline numbers + year strip ---- */
+  var yr = S.statYear || TODAY.getFullYear();
+  var years = {};
+  entries.forEach(function (e) { years[fromIso(e.week).getFullYear()] = 1; });
+  years[TODAY.getFullYear()] = 1;
+  var yearList = Object.keys(years).sort();
+  var inYear = entries.filter(function (e) { return fromIso(e.week).getFullYear() === Number(yr); });
+  var weeksOn = {};
+  inYear.forEach(function (e) { weeksOn[weekNumber(fromIso(e.week))] = 1; });
 
-  out += '<section class="block"><h3 class="rule-head"><span>By the numbers</span></h3><div class="stat-row">'
-    + '<div class="stat"><b>' + entries.length + '</b><span>weekends logged</span></div>'
-    + '<div class="stat"><b>' + keys.length + '</b><span>places visited</span></div>'
-    + '<div class="stat"><b>' + photoList().length + '</b><span>photos</span></div></div>'
-    + (entries.length ? '<p class="note">Most common outing: <b>' + esc(topAct || "\u2014") + '</b>. Most reliable attendance: <b>'
-        + esc(mostLoyal ? mostLoyal.label : "\u2014") + '</b> at ' + (attend[mostLoyal && mostLoyal.id] || 0) + ' of ' + entries.length + '.</p>' : "")
-    + '</section>';
+  out += '<section class="block"><h3 class="rule-head"><span>' + yr + ' so far</span></h3>';
+  out += '<div class="stat-row">'
+    + '<div class="stat"><b>' + inYear.length + '</b><span>weekends together</span></div>'
+    + '<div class="stat"><b>' + keys.length + '</b><span>places all time</span></div>'
+    + '<div class="stat"><b>' + photoList().length + '</b><span>photos</span></div></div>';
+  out += '<div class="strip">';
+  for (var w = 1; w <= 52; w++) {
+    out += '<span class="' + (weeksOn[w] ? "on" : "") + (Number(yr) === TODAY.getFullYear() && w === weekNumber(SAT) ? " now" : "") + '"></span>';
+  }
+  out += '</div><p class="note">Each cell is a week of ' + yr + '; filled means you got together. '
+    + (longestStreak() > 1 ? "Longest run so far: " + longestStreak() + " weekends back to back." : "") + '</p>';
+  if (yearList.length > 1) {
+    out += '<div class="row-btns" style="margin-top:12px">' + yearList.map(function (y) {
+      return '<button class="ghost' + (Number(y) === Number(yr) ? " live" : "") + '" data-year="' + y + '">' + y + '</button>';
+    }).join("") + '</div>';
+  }
+  out += '</section>';
 
+  /* ---- milestones ---- */
+  var miles = milestones();
+  out += '<section class="block miles"><h3 class="rule-head"><span>Milestones</span></h3>';
+  if (!miles.length) {
+    out += '<p class="empty">These show up as the log fills in \u2014 first visits, repeat spots, weekends when everyone made it.</p>';
+  } else {
+    out += '<ul>' + miles.map(function (m) {
+      return '<li><span class="mile-mark"></span><div class="mile-body"><p class="mile-what">' + esc(m.text) + '</p>'
+        + '<p class="mile-when">' + fromIso(m.week).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) + '</p></div></li>';
+    }).join("") + '</ul>';
+  }
+  out += '</section>';
+
+  /* ---- who you've seen ---- */
+  var att = attendance();
+  out += '<section class="block att"><h3 class="rule-head"><span>Who you\u2019ve seen</span></h3><ul>'
+    + FAMILIES.map(function (f) {
+        var n = att.counts[f.id] || 0;
+        var pct = att.total ? (n / att.total) * 100 : 0;
+        return '<li><span class="att-name">' + esc(f.label) + '</span>'
+          + '<span class="att-bar"><span style="width:' + pct + '%"></span></span>'
+          + '<span class="att-num">' + n + ' of ' + att.total + '</span></li>';
+      }).join("")
+    + '</ul><p class="note">Out of ' + att.total + ' weekend' + (att.total === 1 ? "" : "s") + ' logged. Life gets in the way \u2014 this is a record, not a scoreboard.</p></section>';
+
+  /* ---- seasons ---- */
+  var sb = seasonBreakdown();
+  out += '<section class="block"><h3 class="rule-head"><span>By season</span></h3>';
+  if (!entries.length) {
+    out += '<p class="empty">Patterns show up here once there are a few weekends logged \u2014 beaches in July, dinners in January.</p>';
+  } else {
+    SEASONS.forEach(function (sn) {
+      var b = sb[sn.id];
+      out += '<div class="season"><div class="season-head"><span class="season-name">' + sn.label + '</span>'
+        + '<span class="season-top">' + esc(b.ranked[0] || "\u2014") + '</span>'
+        + '<span class="season-count">' + b.total + ' weekend' + (b.total === 1 ? "" : "s") + '</span></div>'
+        + (b.ranked.length > 1 ? '<p class="season-list">then ' + b.ranked.slice(1, 4).map(function (a) { return esc(a) + " (" + b.acts[a] + ")"; }).join(", ") + '</p>' : "")
+        + '</div>';
+    });
+  }
+  out += '</section>';
+
+  /* ---- venues ---- */
   out += '<section class="block"><h3 class="rule-head"><span>Every place</span></h3>';
   if (!keys.length) {
     out += '<p class="empty">No venues yet. Add one when you log a weekend and it\u2019ll be offered as a suggestion from then on.</p></section>';
@@ -1124,8 +1281,7 @@ function viewPlaces() {
     });
     out += '</tbody></table></section>';
 
-    var staleKeys = keys;
-    var stale = staleKeys.filter(function (k) { return (new Date() - fromIso(stats[k].last)) / 86400000 > 60; });
+    var stale = keys.filter(function (k) { return (new Date() - fromIso(stats[k].last)) / 86400000 > 60; });
     if (stale.length) {
       stale.sort(function (a, b) { return stats[a].last > stats[b].last ? 1 : -1; });
       out += '<section class="block stale"><h3 class="rule-head"><span>Overdue for a return</span></h3><ul>'
@@ -1133,6 +1289,7 @@ function viewPlaces() {
         + '</ul></section>';
     }
   }
+
   out += '<section class="block"><h3 class="rule-head"><span>Housekeeping</span></h3>'
     + '<div class="row-btns"><button class="ghost" id="backup">Download a backup</button>'
     + '<button class="ghost" id="backup-full">Backup with photos</button></div>'
@@ -1140,6 +1297,7 @@ function viewPlaces() {
     + 'The second includes the photos and can run to tens of megabytes. Worth grabbing one before any update to the page.</p></section>';
   return out;
 }
+
 function viewLightbox() {
   if (!S.lightbox) return "";
   var p = photoList().filter(function (x) { return x.id === S.lightbox; })[0];
@@ -1355,6 +1513,7 @@ document.addEventListener("click", function (e) {
   }
 
   /* ---- feed ---- */
+  if (d.year) { S.statYear = d.year; render(); return; }
   if (t.id === "backup") { exportBackup(false); return; }
   if (t.id === "backup-full") { exportBackup(true); return; }
   if (t.id === "pick-photos") {
