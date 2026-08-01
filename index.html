@@ -210,6 +210,13 @@ html, body { margin: 0; padding: 0; }
 @media (prefers-reduced-motion: reduce) { .eb * { transition: none !important; } }
 
 
+/* ---- standings: who voted ---- */
+.board-who { margin: 7px 0 0; font-family: var(--util); font-size: 11px; letter-spacing: .02em; line-height: 1.7; }
+.board-who span { display: inline-block; }
+.w-dot { color: var(--hair); padding: 0 6px; }
+.w-free { color: var(--ink-70); }
+.w-busy { color: var(--ink-45); opacity: .6; text-decoration: line-through; text-decoration-thickness: .5px; }
+
 /* ---- section nav ---- */
 .nav { display: flex; gap: 0; border-bottom: 1px solid var(--ink); background: var(--sheet); }
 .nav button { flex: 1; padding: 13px 4px; font-family: var(--util); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-45); border-right: 1px solid var(--hair-soft); }
@@ -279,6 +286,9 @@ html, body { margin: 0; padding: 0; }
 .cal-day.has .dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--claret); margin: 5px auto 0; }
 .cal-day.has .mini { display: block; font-size: 8.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--claret); margin-top: 3px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-day.has:hover { background: rgba(176,148,96,.12); }
+.cal-day.future { color: var(--hair); cursor: default; }
+.cal-day:not(.future):not(.has):hover { background: rgba(176,148,96,.08); }
+.cal-day:not(.future):not(.has):hover::after { content: "+"; position: absolute; left: 0; right: 0; bottom: 6px; font-size: 13px; color: var(--claret); }
 
 /* ---- day detail ---- */
 .detail-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
@@ -577,10 +587,23 @@ function refresh() {
     S.data = n; setStatus("ok"); render();
   }).catch(function () { setStatus("error"); });
 }
+/* Entries are keyed by the actual date they happened. Older entries were keyed
+   by the weekend's Saturday with a sat/sun flag, so those get remapped on read. */
+function migrateLog(raw) {
+  var out = {};
+  Object.keys(raw || {}).forEach(function (k) {
+    var e = raw[k];
+    if (!e) return;
+    var key = k;
+    if (e.day === "sun" && fromIso(k).getDay() === 6) key = iso(new Date(fromIso(k).getFullYear(), fromIso(k).getMonth(), fromIso(k).getDate() + 1));
+    out[key] = e;
+  });
+  return out;
+}
 function loadLog(force) {
   if (S.log && !force) return Promise.resolve(S.log);
   return req("GET", "/log").then(function (raw) {
-    S.log = raw || {};
+    S.log = migrateLog(raw || {});
     render();
     return S.log;
   }).catch(function () { S.log = S.log || {}; return S.log; });
@@ -659,6 +682,7 @@ function venueStats() {
   Object.keys(S.log || {}).forEach(function (wk) {
     var e = S.log[wk];
     if (!e || !e.venue) return;
+    // wk is the date the get-together happened
     var key = String(e.venue).trim().toLowerCase();
     if (!key) return;
     if (!out[key]) out[key] = { name: e.venue, activity: e.activityName || "", count: 0, last: wk, first: wk, who: {}, lat: e.lat || null, lon: e.lon || null };
@@ -673,7 +697,12 @@ function venueStats() {
 }
 function logEntries() {
   return Object.keys(S.log || {}).filter(function (k) { return S.log[k]; })
-    .sort().reverse().map(function (k) { var e = S.log[k]; e.week = k; return e; });
+    .sort().reverse().map(function (k) {
+      var e = S.log[k];
+      e.date = k;
+      e.week = iso(saturdayOf(fromIso(k)));   // which weekend's photos belong to it
+      return e;
+    });
 }
 function photoList() {
   var out = [];
@@ -788,7 +817,7 @@ function seasonBreakdown() {
   var out = {};
   SEASONS.forEach(function (sn) { out[sn.id] = { season: sn, total: 0, acts: {} }; });
   logEntries().forEach(function (e) {
-    var b = out[seasonOf(e.week).id];
+    var b = out[seasonOf(e.date).id];
     b.total++;
     var name = e.activityName || "Got together";
     b.acts[name] = (b.acts[name] || 0) + 1;
@@ -805,7 +834,8 @@ function attendance() {
   return { total: total, counts: counts };
 }
 function longestStreak() {
-  var weeks = logEntries().map(function (e) { return e.week; }).sort();
+  var weeks = logEntries().map(function (e) { return iso(saturdayOf(fromIso(e.date))); }).sort();
+  weeks = weeks.filter(function (w, i) { return weeks.indexOf(w) === i; });
   var best = 0, run = 0, prev = null;
   weeks.forEach(function (w) {
     if (prev && iso(shiftWeeks(fromIso(prev), 1)) === w) run++; else run = 1;
@@ -822,21 +852,22 @@ function milestones() {
   entries.forEach(function (e, idx) {
     var n = idx + 1;
     if ([1, 10, 25, 50, 100].indexOf(n) > -1) {
-      out.push({ week: e.week, text: n === 1 ? "The first weekend on the board." : n + " weekends together." });
+      out.push({ week: e.date, text: n === 1 ? "The first weekend on the board." : n + " weekends together." });
     }
     if (e.venue) {
       var k = e.venue.trim().toLowerCase();
       venueSeen[k] = (venueSeen[k] || 0) + 1;
-      if (venueSeen[k] === 1) out.push({ week: e.week, text: "First time at " + e.venue + "." });
-      else if ([5, 10, 20, 25].indexOf(venueSeen[k]) > -1) out.push({ week: e.week, text: venueSeen[k] + " visits to " + e.venue + "." });
+      if (venueSeen[k] === 1) out.push({ week: e.date, text: "First time at " + e.venue + "." });
+      else if ([5, 10, 20, 25].indexOf(venueSeen[k]) > -1) out.push({ week: e.date, text: venueSeen[k] + " visits to " + e.venue + "." });
     }
     if ((e.who || []).length === FAMILIES.length) {
-      out.push({ week: e.week, text: allFiveBefore ? "All five families out together again." : "All five families, for the first time." });
+      out.push({ week: e.date, text: allFiveBefore ? "All five families out together again." : "All five families, for the first time." });
       allFiveBefore = true;
     }
-    if (prev && iso(shiftWeeks(fromIso(prev), 1)) === e.week) run++; else run = 1;
-    if (run > bestRun && run >= 3) { bestRun = run; out.push({ week: e.week, text: run + " weekends in a row." }); }
-    prev = e.week;
+    var ew = iso(saturdayOf(fromIso(e.date)));
+    if (prev && iso(shiftWeeks(fromIso(prev), 1)) === ew) run++; else run = 1;
+    if (run > bestRun && run >= 3) { bestRun = run; out.push({ week: e.date, text: run + " weekends in a row." }); }
+    prev = ew;
   });
   return out.reverse().slice(0, 12);
 }
@@ -1005,7 +1036,12 @@ function viewStandings() {
     out += '<li><span class="ord">' + String(i + 1).padStart(2, "0") + '</span><div class="board-body">'
       + '<p class="board-line"><span class="board-name">' + esc(r.activity.name) + '</span><span class="board-num">' + r.best.who.length + '</span></p>'
       + '<span class="rail"><span style="width:' + ((r.best.who.length / FAMILIES.length) * 100) + '%"></span></span>'
-      + '<p class="board-sub">' + esc(sub) + '</p></div></li>';
+      + '<p class="board-sub">' + esc(sub) + '</p>'
+      + (r.interested.length ? '<p class="board-who">' + r.interested.map(function (fid) {
+          var free = r.best.who.indexOf(fid) > -1;
+          return '<span class="' + (free ? "w-free" : "w-busy") + '">' + esc(FAM[fid].label.split(" + ")[0]) + '</span>';
+        }).join('<span class="w-dot">\u00b7</span>') + '</p>' : "")
+      + '</div></li>';
   });
   out += '</ol></section>';
   out += '<section class="block"><h3 class="rule-head"><span>Who\u2019s free when</span></h3><div class="matrix"><span></span>'
@@ -1033,8 +1069,9 @@ function viewStandings() {
 /* which weekend still needs writing up */
 function unloggedWeek() {
   if (!S.log) return null;
-  var cand = TODAY.getDay() === 0 ? WEEK : iso(PREV);   // Sunday: this weekend
-  if (S.log[cand] || S.skipRecap === cand) return null;
+  var satPrev = iso(PREV), sunPrev = iso(new Date(PREV.getFullYear(), PREV.getMonth(), PREV.getDate() + 1));
+  var cand = TODAY.getDay() === 0 ? WEEK : satPrev;
+  if (S.log[satPrev] || S.log[sunPrev] || S.log[cand] || S.skipRecap === cand) return null;
   return cand;
 }
 function viewRecapBar() {
@@ -1048,26 +1085,27 @@ function viewRecapBar() {
 }
 function captureRecap() {
   var a = document.getElementById("r-act"), o = document.getElementById("r-act-other"),
-      v = document.getElementById("r-venue"), d = document.getElementById("r-day");
+      v = document.getElementById("r-venue"), d = document.getElementById("r-date");
   if (!a) return;
-  S.recapDraft = {
-    act: a.value, other: o ? o.value : "", venue: v ? v.value : "", day: d ? d.value : "sat"
-  };
+  S.recapDraft = { act: a.value, other: o ? o.value : "", venue: v ? v.value : "", date: d ? d.value : S.recap };
 }
 function viewRecapForm() {
-  var wk = S.recap, e = (S.log && S.log[wk]) || {};
+  var key = S.recap, e = (S.log && S.log[key]) || {};
   var draft = S.recapDraft || {};
-  var d = fromIso(wk);
+  var dateVal = draft.date || key;
+  var d = fromIso(dateVal);
   var wkData = S.recapSource || { activities: S.data.activities };
   var acts = wkData.activities && wkData.activities.length ? wkData.activities : S.data.activities;
   var curAct = draft.act !== undefined ? draft.act : (e.activityName || (acts[0] && acts[0].name));
   var isOther = curAct === "__other" || (curAct && acts.every(function (a) { return a.name !== curAct; }));
   var otherVal = draft.other !== undefined ? draft.other : (isOther ? (e.activityName || "") : "");
   var venueVal = draft.venue !== undefined ? draft.venue : (e.venue || "");
-  var dayVal = draft.day || e.day || "sat";
   var chosenWho = S.recapWho || [];
-  return '<section class="block"><h3 class="rule-head"><span>Weekend of '
-    + d.toLocaleDateString("en-US", { month: "long", day: "numeric" }) + '</span></h3>'
+  var isEdit = !!(S.log && S.log[key]);
+  return '<section class="block"><h3 class="rule-head"><span>' + (isEdit ? "Edit" : "Log") + ' a get-together</span></h3>'
+    + '<div class="field"><label>When was it?</label><input type="date" id="r-date" value="' + esc(dateVal) + '" max="' + esc(iso(TODAY)) + '" />'
+    + '<p class="tiny">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    + ' \u2014 any past date works, so you can fill in history.</p></div>'
     + '<div class="field"><label>What did you do?</label><select id="r-act">'
     + acts.map(function (a) { return '<option value="' + esc(a.name) + '"' + (!isOther && a.name === curAct ? " selected" : "") + '>' + esc(a.name) + '</option>'; }).join("")
     + '<option value="__other"' + (isOther ? " selected" : "") + '>Something else\u2026</option></select></div>'
@@ -1077,19 +1115,19 @@ function viewRecapForm() {
     + '<div class="suggest" id="venue-suggest"></div>'
     + (S.recapVenue && S.recapVenue.lat ? '<p class="tiny">Pinned on the map \u2014 the calendar entry will link straight to it.</p>' : "")
     + '</div>'
-    + '<div class="field"><label>Which day</label><select id="r-day">'
-    + DAYS.map(function (dd) { return '<option value="' + dd.id + '"' + (dayVal === dd.id ? " selected" : "") + '>' + dd.label + '</option>'; }).join("") + '</select></div>'
     + '<div class="field"><label>Who came?</label><div class="who-grid">'
     + FAMILIES.map(function (f) { return '<button data-who="' + f.id + '" class="' + (chosenWho.indexOf(f.id) > -1 ? "on" : "") + '">' + esc(f.label) + '</button>'; }).join("")
     + '</div></div>'
     + '<div class="row-btns"><button class="primary" id="r-save">Save to calendar</button>'
-    + '<button class="ghost" id="r-cancel">Cancel</button></div></section>';
+    + '<button class="ghost" id="r-cancel">Cancel</button>'
+    + (isEdit ? '<button class="ghost' + (S.confirming === "del" ? " live" : "") + '" id="r-delete">' + (S.confirming === "del" ? "Delete this entry" : "Delete") + '</button>' : "")
+    + '</div></section>';
 }
 
 function viewFeed() {
   var shots = photoList(), out = "";
   var weeks = [];
-  for (var wi = 0; wi < 8; wi++) {
+  for (var wi = 0; wi < 10; wi++) {
     var wd = shiftWeeks(SAT, -wi);
     weeks.push({ id: iso(wd), label: wd.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + (wi === 0 ? " (this weekend)" : "") });
   }
@@ -1099,29 +1137,29 @@ function viewFeed() {
     + weeks.map(function (w) { return '<option value="' + w.id + '"' + (w.id === chosenWeek ? " selected" : "") + '>' + esc(w.label) + '</option>'; }).join("")
     + '</select></div><div class="uploader">'
     + '<button class="primary" id="pick-photos">Choose photos</button>'
-    + '<span class="upload-note">' + (S.uploading ? S.uploading + " uploading\u2026" : "Shrunk to about 250KB each before upload, so the free database lasts years.") + '</span></div></section>';
+    + '<span class="upload-note">' + (S.uploading ? S.uploading + " uploading\u2026"
+        : "Shrunk to about 250KB each before upload, so the free database lasts years.") + '</span></div></section>';
+
   out += '<section class="block"><h3 class="rule-head"><span>The feed</span></h3>';
-  if (!S.photoMeta) { out += '<p class="empty">Loading\u2026</p></section>'; return out; }
-  if (!shots.length) { out += '<p class="empty">No photos yet. Add a few from a weekend you\u2019ve already had \u2014 they\u2019ll show up here and on the calendar.</p></section>'; return out; }
+  if (!S.photoMeta) return out + '<p class="empty">Loading\u2026</p></section>';
+  if (!shots.length) {
+    return out + '<p class="empty">No photos yet. Add a few from a weekend you\u2019ve already had \u2014 they\u2019ll show up here and on the calendar.</p></section>';
+  }
   out += '<div class="feed">';
   shots.slice(0, S.feedShown).forEach(function (p) {
     var have = S.photoData[p.id];
     var who = p.by && FAM[p.by] ? FAM[p.by].label.split(" + ")[0] : "";
     out += '<div class="shot' + (have ? "" : " pending") + '" data-shot="' + esc(p.id) + '" data-open="' + esc(p.id) + '">'
       + (have ? '<img src="' + have + '" alt="" />' : "")
-      + '<span class="shot-cap">' + esc(who) + '</span></div>';
+      + (who ? '<span class="shot-cap">' + esc(who) + '</span>' : "") + '</div>';
   });
   out += '</div>';
   if (shots.length > S.feedShown) out += '<div class="more-row"><button class="ghost" id="more-shots">Show more</button></div>';
   return out + '</section>';
 }
-function entryDate(week, day) {
-  var d = fromIso(week);
-  return day === "sun" ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) : d;
-}
 function entriesByDate() {
   var map = {};
-  logEntries().forEach(function (e) { map[iso(entryDate(e.week, e.day))] = e; });
+  logEntries().forEach(function (e) { map[e.date] = e; });
   return map;
 }
 function viewCalendar() {
@@ -1143,17 +1181,16 @@ function viewCalendar() {
     var key = iso(new Date(year, month, day));
     var e = byDate[key];
     var isToday = key === iso(TODAY);
-    out += '<' + (e ? 'button' : 'span') + ' class="cal-day' + (e ? " has" : "") + (isToday ? " today" : "") + '"'
-      + (e ? ' data-day="' + key + '"' : "") + '>' + day
+    var future = fromIso(key) > TODAY;
+    out += '<button class="cal-day' + (e ? " has" : "") + (isToday ? " today" : "") + (future ? " future" : "") + '"'
+      + (future ? ' disabled' : (e ? ' data-day="' + key + '"' : ' data-log="' + key + '"')) + '>' + day
       + (e ? '<span class="dot"></span><span class="mini">' + esc((e.activityName || "").split(" ")[0]) + '</span>' : "")
-      + '</' + (e ? 'button' : 'span') + '>';
+      + '</button>';
   }
   out += '</div>';
   var count = Object.keys(byDate).filter(function (k) { return fromIso(k).getMonth() === month && fromIso(k).getFullYear() === year; }).length;
-  out += '<p class="note">' + (count ? count + " get-together" + (count === 1 ? "" : "s") + " this month. Tap a marked day for the details."
-    : "Nothing logged this month yet.") + '</p>';
-  out += '<div class="row-btns" style="margin-top:16px"><button class="ghost" data-recap="' + iso(PREV) + '">Log last weekend</button>'
-    + '<button class="ghost" data-recap="' + WEEK + '">Log this weekend</button></div>';
+  out += '<p class="note">' + (count ? count + " get-together" + (count === 1 ? "" : "s") + " this month. "
+    : "Nothing logged this month yet. ") + 'Tap any past day to log one \u2014 including old ones, if you want to fill in history.</p>';
   return out + '</section>';
 }
 function viewDayDetail() {
@@ -1197,12 +1234,12 @@ function viewPlaces() {
   /* ---- headline numbers + year strip ---- */
   var yr = S.statYear || TODAY.getFullYear();
   var years = {};
-  entries.forEach(function (e) { years[fromIso(e.week).getFullYear()] = 1; });
+  entries.forEach(function (e) { years[fromIso(e.date).getFullYear()] = 1; });
   years[TODAY.getFullYear()] = 1;
   var yearList = Object.keys(years).sort();
-  var inYear = entries.filter(function (e) { return fromIso(e.week).getFullYear() === Number(yr); });
+  var inYear = entries.filter(function (e) { return fromIso(e.date).getFullYear() === Number(yr); });
   var weeksOn = {};
-  inYear.forEach(function (e) { weeksOn[weekNumber(fromIso(e.week))] = 1; });
+  inYear.forEach(function (e) { weeksOn[weekNumber(fromIso(e.date))] = 1; });
 
   out += '<section class="block"><h3 class="rule-head"><span>' + yr + ' so far</span></h3>';
   out += '<div class="stat-row">'
@@ -1482,20 +1519,33 @@ document.addEventListener("click", function (e) {
     }
     return;
   }
-  if (t.id === "r-cancel") { S.recap = null; S.recapDraft = null; S.recapVenue = null; render(); return; }
+  if (t.id === "r-cancel") { S.recap = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null; render(); return; }
+  if (t.id === "r-delete") {
+    if (S.confirming !== "del") { captureRecap(); S.confirming = "del"; render(); return; }
+    var delKey = S.recap;
+    delete S.log[delKey];
+    S.recap = null; S.recapDraft = null; S.confirming = null; S.dayDetail = null; setStatus("saving"); render();
+    req("DELETE", "/log/" + delKey).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
+    return;
+  }
   if (d.month) { S.calMonth = d.month; S.dayDetail = null; render(); return; }
   if (d.day) { S.dayDetail = d.day; loadPhotoMeta(); render(); return; }
+  if (d.log) {
+    S.recap = d.log; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null; S.recapWho = []; S.confirming = null;
+    S.recapSource = null; render(); return;
+  }
   if (t.id === "back-cal") { S.dayDetail = null; render(); return; }
   if (t.id === "skip-recap") { S.skipRecap = unloggedWeek(); render(); return; }
   if (t.id === "r-save") {
-    var wk = S.recap;
+    var oldKey = S.recap;
+    var wk = (document.getElementById("r-date") || {}).value || oldKey;
     var sel = document.getElementById("r-act").value;
     var other = (document.getElementById("r-act-other").value || "").trim();
     var venueText = (document.getElementById("r-venue").value || "").trim();
     var entry = {
       activityName: sel === "__other" ? (other || "Got together") : sel,
       venue: venueText,
-      day: document.getElementById("r-day").value,
+      day: fromIso(wk).getDay() === 0 ? "sun" : "sat",
       who: S.recapWho.slice(),
       by: S.me, ts: Date.now()
     };
@@ -1505,10 +1555,15 @@ document.addEventListener("click", function (e) {
       var known = venueStats()[venueText.toLowerCase()];
       if (known && known.lat) { entry.lat = known.lat; entry.lon = known.lon; }
     }
-    S.log = S.log || {}; S.log[wk] = entry;
-    S.recap = null; S.recapDraft = null; S.recapVenue = null; S.dayDetail = iso(entryDate(wk, entry.day));
+    S.log = S.log || {};
+    if (oldKey !== wk) delete S.log[oldKey];
+    S.log[wk] = entry;
+    S.recap = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null;
+    S.dayDetail = wk; S.calMonth = iso(new Date(fromIso(wk).getFullYear(), fromIso(wk).getMonth(), 1));
     S.view = "calendar"; setStatus("saving"); render();
-    req("PUT", "/log/" + wk, entry).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
+    var jobs = [req("PUT", "/log/" + wk, entry)];
+    if (oldKey !== wk) jobs.push(req("DELETE", "/log/" + oldKey));
+    Promise.all(jobs).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
     return;
   }
 
