@@ -473,10 +473,13 @@ DAYS.forEach(function (d) { DAY_LABEL[d.id] = d.label; });
 /* Everyone lives in central/south Orange County. Suggestions and the
    roulette stay inside this box so nothing lands 40 minutes away. */
 var AREA = {
-  lat: 33.672, lon: -117.782,      // rough centroid of the five homes
-  minLat: 33.40, maxLat: 33.96,
-  minLon: -118.12, maxLon: -117.42,
-  maxKm: 32
+  /* Four of the five families are in Irvine or North Tustin, so the centre sits
+     there rather than at the geometric middle, which Laguna Niguel drags south. */
+  lat: 33.690, lon: -117.792,
+  minLat: 33.50, maxLat: 33.83,
+  minLon: -117.97, maxLon: -117.62,
+  maxKm: 24,        // far enough to include Laguna Niguel, not Dana Point
+  decayKm: 7        // how fast a suggestion loses out for being further away
 };
 function kmFrom(lat, lon) {
   if (typeof lat !== "number" || typeof lon !== "number") return 999;
@@ -1043,7 +1046,9 @@ function rouletteFrom(list) {
   if (!pool.length) return null;
   var weights = pool.map(function (v) {
     var days = v.last ? (new Date() - fromIso(v.last)) / 86400000 : 200;
-    return Math.min(10, 1 + days / 21);
+    var stale = Math.min(10, 1 + days / 21);
+    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);   // strong pull toward the middle
+    return stale * Math.max(0.05, near);
   });
   var total = weights.reduce(function (a, b) { return a + b; }, 0);
   var r = Math.random() * total;
@@ -1122,6 +1127,47 @@ function adultsOnly(t) {
   return false;
 }
 
+/* OSM tags are loose — beaches get tagged leisure=park, so do RV parks, golf
+   courses and office parks. The name is usually the better signal, so each
+   kind rejects names that plainly describe something else. */
+var NAME_RULES = {
+  park: {
+    reject: /\b(beach|shore|strand|cove|harbou?r|marina|pier|golf|country club|cemetery|memorial gardens?|rv park|mobile home|trailer park|business park|office park|corporate|industrial|research park|technology park|parking|park & ?ride|skate ?park|water ?park|nursery|storage)\b/i
+  },
+  beach: {
+    prefer: /\b(beach|shore|strand|cove|bay|state park)\b/i,
+    reject: /\b(parking|lot|club|resort|volleyball court)\b/i
+  },
+  food: {
+    reject: /\b(golf|country club|catering|commissary|food truck|ghost kitchen|gas|fuel|market|liquor)\b/i
+  },
+  coffee: {
+    reject: /\b(roasting (co|plant)|warehouse|distribution|drive-?thru only)\b/i
+  },
+  indoor: {
+    reject: /\b(storage|administration|office)\b/i
+  },
+  hike: {
+    reject: /\b(golf|rv park|mobile home|business park|parking|beach)\b/i
+  },
+  pool: { reject: /\b(supply|service|repair|cleaning|contractor|table|hall)\b/i }
+};
+function nameFits(name, kindId) {
+  var r = NAME_RULES[kindId];
+  if (!r || !name) return true;
+  if (r.reject && r.reject.test(name)) return false;
+  if (r.prefer && !r.prefer.test(name)) return false;
+  return true;
+}
+/* Tags can also contradict the category outright. */
+function tagsFit(t, kindId) {
+  if (!t) return true;
+  if (kindId === "park" && (t.natural === "beach" || t.golf || t.leisure === "golf_course" || t.landuse === "cemetery")) return false;
+  if (kindId === "park" && t.tourism === "caravan_site") return false;
+  if (kindId === "food" && (t.amenity === "fuel" || t.shop)) return false;
+  return true;
+}
+
 function kindFor(activity) {
   for (var i = 0; i < KINDS.length; i++) if (KINDS[i].match.test(activity || "")) return KINDS[i];
   return KIND_DEFAULT;
@@ -1161,6 +1207,7 @@ function fetchNewSpots(activity) {
       .then(function (r) { if (!r.ok) throw new Error("osm " + r.status); return r.json(); })
       .catch(function () { return attempt(i + 1); });
   }
+  var kid_kindId = kindFor(activity).id;
   return attempt(0).then(function (j) {
     if (!j) return null;
     var seen = {};
@@ -1172,6 +1219,7 @@ function fetchNewSpots(activity) {
       return { name: t.name, sub: addr || null, lat: lat, lon: lon, kid: kidSignals(t, activity), tags: t };
     }).filter(function (v) {
       return v.name && typeof v.lat === "number" && !adultsOnly(v.tags)
+        && nameFits(v.name, kid_kindId) && tagsFit(v.tags, kid_kindId)
         && inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm
         && !seen[v.name.trim().toLowerCase()];
     });
@@ -1181,7 +1229,8 @@ function fetchNewSpots(activity) {
 function pickNew(list) {
   if (!list.length) return null;
   var scored = list.map(function (v) {
-    var w = 1 + v.kid.length * 2.5 + Math.max(0, (AREA.maxKm - kmFrom(v.lat, v.lon)) / AREA.maxKm) * 2;
+    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);
+    var w = (1 + v.kid.length * 2) * Math.max(0.03, near);
     return { v: v, w: w };
   });
   var total = scored.reduce(function (a, b) { return a + b.w; }, 0);
@@ -1448,7 +1497,7 @@ function viewSpot() {
     out += '<div class="find"><p class="find-kicker">Never been \u2014 how about</p>'
       + '<p class="find-name">' + esc(dv.name) + '</p>'
       + (dv.kid.length ? '<p class="find-tags">' + dv.kid.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join("") + '</p>' : "")
-      + '<p class="find-dist">' + kmFrom(dv.lat, dv.lon).toFixed(0) + ' km from the middle of everyone</p>'
+      + '<p class="find-dist">about ' + Math.max(1, Math.round(kmFrom(dv.lat, dv.lon) * 0.621)) + ' miles from central Irvine</p>'
       + '<div class="row-btns"><button class="primary" data-spot="' + esc(dv.name) + '" data-lat="' + dv.lat + '" data-lon="' + dv.lon + '"'
       + (dv.sub ? ' data-sub="' + esc(dv.sub) + '"' : "") + '>Back this</button>'
       + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
