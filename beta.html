@@ -229,6 +229,8 @@ html, body { margin: 0; padding: 0; }
 .chip-ago { display: block; font-family: var(--util); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-45); margin-top: 2px; }
 .spot .chips button { text-align: left; }
 
+.my-spot { display: block; font-family: var(--util); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--claret); margin-top: 4px; }
+
 /* ---- sitting out ---- */
 .sitting { padding: 16px; border: 1px solid var(--hair); background: rgba(176,148,96,.09); }
 .sitting p { margin: 0 0 8px; font-size: 14.5px; color: var(--ink-70); }
@@ -719,9 +721,23 @@ function flush() {
   Promise.all(jobs).then(function () { dirty = false; setStatus("ok"); })
     .catch(function () { dirty = false; setStatus("error"); });
 }
+function eligibleActivities() {
+  return tally().filter(function (r) { return r.best.who.length >= 2; });
+}
+/* Don't let the panel jump between activities as votes wobble: stay on the one
+   we're already showing while it still qualifies. */
+function spotActivity() {
+  var elig = eligibleActivities();
+  if (!elig.length) return null;
+  if (S.spotAct) {
+    var kept = elig.filter(function (r) { return r.activity.id === S.spotAct; })[0];
+    if (kept) return kept;
+  }
+  return elig[0];
+}
 function leadActivityId() {
-  var rows = tally();
-  return rows[0] ? rows[0].activity.id : null;
+  var r = spotActivity();
+  return r ? r.activity.id : null;
 }
 function setSpot(name, lat, lon, host, sub) {
   if (!S.me) return;
@@ -1317,11 +1333,15 @@ function viewBallot() {
   out += '</div><p class="sub">What sounds good?</p><ul class="acts">';
   S.data.activities.forEach(function (a) {
     var picked = v.picks.indexOf(a.id) > -1;
-    var count = FAMILIES.filter(function (f) { var vv = S.data.votes[f.id]; return vv && vv.picks.indexOf(a.id) > -1; }).length;
+    var count = FAMILIES.filter(function (f) { var vv = S.data.votes[f.id]; return vv && !vv.out && vv.picks.indexOf(a.id) > -1; }).length;
+    var mySpot = (S.data.spots || {})[S.me];
+    var spotTag = (mySpot && mySpot.act === a.id)
+      ? '<span class="my-spot">' + (mySpot.host ? "you offered to host" : "you picked " + esc(mySpot.name)) + '</span>' : "";
     out += '<li class="' + (picked ? "on" : "") + '"><button class="act" data-pick="' + esc(a.id) + '" aria-pressed="' + picked + '">'
       + '<span class="tick"></span><span class="act-body"><span class="act-name">' + esc(a.name) + '</span>'
       + '<span class="act-meta">' + a.slots.map(function (s) { return SLOT_LABEL[s].toLowerCase(); }).join(", ")
-      + (a.by && FAM[a.by] ? " \u00b7 proposed by " + esc(FAM[a.by].label.split(" + ")[0]) : "") + '</span></span>'
+      + (a.by && FAM[a.by] ? " \u00b7 proposed by " + esc(FAM[a.by].label.split(" + ")[0]) : "") + '</span>'
+      + spotTag + '</span>'
       + '<span class="act-count">' + (count || "") + '</span></button>'
       + (S.confirming === a.id ? '<button class="drop live" data-drop="' + esc(a.id) + '">Remove</button>'
                                : '<button class="drop" data-ask="' + esc(a.id) + '" aria-label="Remove">\u00d7</button>')
@@ -1344,13 +1364,15 @@ function viewBallot() {
 }
 function viewSpot() {
   var rows = tally();
-  var lead = rows[0];
-  if (!lead || !S.data.activities.length) return "";
+  var lead = spotActivity();
+  if (!S.data.activities.length) return "";
+  if (!lead) lead = rows[0];
 
   /* Two families sharing a time is a plan forming — that's enough to start
      talking about where. Below that, show what's coming so it's not a secret. */
   var UNLOCK = 2;
-  if (lead.best.who.length < UNLOCK) {
+  if (!lead || lead.best.who.length < UNLOCK) {
+    lead = lead || { best: { who: [] } };
     var need = UNLOCK - lead.best.who.length;
     return '<section class="block spot locked"><h3 class="rule-head"><span>Where</span></h3>'
       + '<p class="note" style="margin:0">Waiting on ' + (lead.best.who.length ? need + ' more famil' + (need === 1 ? "y" : "ies") : 'two families')
@@ -1369,7 +1391,16 @@ function viewSpot() {
     return FAMILIES.some(function (f) { return v.name.toLowerCase().indexOf(f.label.toLowerCase()) === 0; });
   }).slice(0, 4);
 
+  var elig = eligibleActivities();
   var out = '<section class="block spot"><h3 class="rule-head"><span>Where for ' + esc(name.toLowerCase()) + '?</span></h3>';
+  if (elig.length > 1) {
+    out += '<div class="chips" style="margin:0 0 14px">'
+      + elig.map(function (r) {
+          return '<button class="chip' + (r.activity.id === lead.activity.id ? " on" : "") + '" data-spotact="' + esc(r.activity.id) + '">'
+            + esc(r.activity.name) + '</button>';
+        }).join("")
+      + '</div><p class="note" style="margin:0 0 14px">More than one could happen \u2014 pick a spot for whichever you\u2019re deciding.</p>';
+  }
   out += '<p class="note" style="margin:0 0 14px">' + esc(name) + ' is '
     + (lead.best.who.length >= MAJORITY ? 'the clear winner' : 'in front') + '. '
     + (homesOnly ? 'This one needs a host \u2014 whoever\u2019s up for it can put their place forward.'
@@ -2003,6 +2034,7 @@ document.addEventListener("click", function (e) {
 
   /* ---- feed ---- */
   if (d.year) { S.statYear = d.year; render(); return; }
+  if (d.spotact) { S.spotAct = d.spotact; S.discovered = null; render(); return; }
   if (d.spot) { setSpot(d.spot, d.lat ? Number(d.lat) : null, d.lon ? Number(d.lon) : null, false, d.sub || null); S.discovered = null; render(); return; }
   if (t.id === "clear-spot") { clearSpot(); render(); return; }
   if (t.id === "offer-host") {
