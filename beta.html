@@ -1014,7 +1014,11 @@ function rouletteFrom(list) {
 /* ---- discovery via OpenStreetMap ----
    OSM has no ratings (nothing free and key-less does), but it does carry real
    family-friendliness tags, which is the signal that actually matters here. */
-var OSM_ENDPOINTS = ["https://overpass.private.coffee/api/interpreter", "https://overpass-api.de/api/interpreter"];
+var OSM_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter"
+];
 
 /* Each kind of outing gets its own OSM filters and its own set of useful
    signals. A playground matters at a park and means nothing at a cafe. */
@@ -1088,7 +1092,7 @@ function osmQuery(activity) {
   var body = (k.filters || KIND_DEFAULT.filters).map(function (f) {
     return 'nwr' + f + '["name"](' + bbox + ');';
   }).join("");
-  return "[out:json][timeout:20];(" + body + ");out center tags 220;";
+  return "[out:json][timeout:15];(" + body + ");out center tags 120;";
 }
 function kidSignals(tags, activity) {
   var k = kindFor(activity), out = [];
@@ -1097,16 +1101,28 @@ function kidSignals(tags, activity) {
   });
   return out;
 }
+/* fetch never times out on its own, so every attempt gets an abort timer.
+   Without this a stalled Overpass mirror leaves the button spinning forever. */
+function fetchWithTimeout(u, opts, ms) {
+  var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  if (ctrl) opts.signal = ctrl.signal;
+  var timer;
+  return new Promise(function (resolve, reject) {
+    timer = setTimeout(function () { if (ctrl) ctrl.abort(); reject(new Error("timeout")); }, ms);
+    fetch(u, opts).then(resolve, reject);
+  }).finally(function () { clearTimeout(timer); });
+}
 function fetchNewSpots(activity) {
   var q = osmQuery(activity);
   function attempt(i) {
-    if (i >= OSM_ENDPOINTS.length) return Promise.resolve([]);
-    return fetch(OSM_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" } })
+    if (i >= OSM_ENDPOINTS.length) return Promise.resolve(null);   // null = couldn't reach anything
+    return fetchWithTimeout(OSM_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" } }, 9000)
       .then(function (r) { if (!r.ok) throw new Error("osm " + r.status); return r.json(); })
       .catch(function () { return attempt(i + 1); });
   }
   return attempt(0).then(function (j) {
+    if (!j) return null;
     var seen = {};
     Object.keys(venueStats()).forEach(function (k2) { seen[k2] = 1; });
     return (j.elements || []).map(function (el) {
@@ -1118,7 +1134,7 @@ function fetchNewSpots(activity) {
         && inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm
         && !seen[v.name.trim().toLowerCase()];
     });
-  }).catch(function () { return []; });
+  }).catch(function () { return null; });
 }
 /* Prefer places that look built for kids, then closer to the middle of everyone. */
 function pickNew(list) {
@@ -1365,7 +1381,8 @@ function viewSpot() {
 
   out += '<div class="row-btns" style="margin-top:16px">'
     + (homesOnly ? "" : '<button class="ghost" id="roulette">Somewhere we\u2019ve been</button>'
-        + '<button class="ghost" id="roulette-new">' + (S.discovering ? "Looking\u2026" : "Somewhere new") + '</button>')
+        + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
+        + (S.discovering ? "Looking\u2026" : "Somewhere new") + '</button>')
     + (mine ? '<button class="ghost" id="clear-spot">Clear my pick</button>' : "")
     + '</div>';
   if (S.discoverMsg) out += '<p class="note">' + esc(S.discoverMsg) + '</p>';
@@ -1376,7 +1393,8 @@ function viewSpot() {
       + (dv.kid.length ? '<p class="find-tags">' + dv.kid.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join("") + '</p>' : "")
       + '<p class="find-dist">' + kmFrom(dv.lat, dv.lon).toFixed(0) + ' km from the middle of everyone</p>'
       + '<div class="row-btns"><button class="primary" data-spot="' + esc(dv.name) + '" data-lat="' + dv.lat + '" data-lon="' + dv.lon + '">Back this</button>'
-      + '<button class="ghost" id="roulette-new">Try another</button>'
+      + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
+      + (S.discovering ? "Looking\u2026" : "Try another") + '</button>'
       + (dml ? '<a class="ghost" href="' + esc(dml) + '" target="_blank" rel="noopener">Reviews</a>' : "")
       + '</div><p class="tiny">Ratings aren\u2019t in the map data \u2014 the Reviews link opens it in Google Maps.</p></div>';
   }
@@ -1753,8 +1771,15 @@ function render() {
   } else if (S.view === "places") {
     body = viewPlaces();
   }
+  var keepY = window.scrollY || 0;
   app.innerHTML = body;
   overlay.innerHTML = viewLightbox();
+  if (S.keepScroll !== false && keepY) window.scrollTo(0, keepY);
+  if (S.scrollToFind) {
+    S.scrollToFind = false;
+    var card = document.querySelector(".find");
+    if (card && card.scrollIntoView) card.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
 
   var input = document.getElementById("new-name");
   if (input && pendingName) input.value = pendingName;
@@ -1957,15 +1982,20 @@ document.addEventListener("click", function (e) {
     else setSpot(FAM[S.me].label + "\u2019s place", null, null, true);
     render(); return;
   }
-  if (t.id === "roulette-new") {
+  if (d.find) {
     if (S.discovering) return;
     var rowsN = tally();
     var actN = rowsN[0] ? rowsN[0].activity.name : "";
     S.discovering = true; S.discoverMsg = null; render();
     fetchNewSpots(actN).then(function (list) {
-      S.discovering = false;
-      if (!list.length) { S.discovered = null; S.discoverMsg = "Couldn\u2019t reach the map data just now \u2014 try again in a moment."; }
+      if (list === null) { S.discovered = null; S.discoverMsg = "Couldn\u2019t reach the map service just now \u2014 try again in a moment, or search by name above."; }
+      else if (!list.length) { S.discovered = null; S.discoverMsg = "Nothing new nearby for this one \u2014 you\u2019ve been to most of them already."; }
       else { S.discovered = pickNew(list); S.discoverMsg = null; }
+    }).catch(function () {
+      S.discovered = null; S.discoverMsg = "Something went wrong looking that up \u2014 try again.";
+    }).then(function () {
+      S.discovering = false;
+      S.scrollToFind = !!S.discovered;     // bring the result into view
       render();
     });
     return;
