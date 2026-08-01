@@ -495,7 +495,9 @@ function inArea(lat, lon) {
 var DEFAULT_ACTIVITIES = [
   { id: "a-park",   name: "Park + playground", slots: ["morning", "afternoon"] },
   { id: "a-brunch", name: "Brunch",            slots: ["morning", "lunch"] },
+  { id: "a-lunch",  name: "Lunch",             slots: ["lunch"] },
   { id: "a-coffee", name: "Coffee",            slots: ["morning", "afternoon"] },
+  { id: "a-dinner", name: "Dinner",            slots: ["dinner"] },
   { id: "a-beach",  name: "Beach",             slots: ["morning", "lunch", "afternoon"] },
   { id: "a-pool",   name: "Pool day",          slots: ["morning", "lunch", "afternoon"] }
 ];
@@ -635,6 +637,9 @@ function boot() {
     var votesSoFar = raw && raw.votes ? normalize(raw).votes : {};
     return req("GET", "/weekends/" + iso(PREV) + "/activities").then(function (prev) {
       var acts = Array.isArray(prev) && prev.length ? normalize({ activities: prev }).activities : DEFAULT_ACTIVITIES.slice();
+      DEFAULT_ACTIVITIES.forEach(function (d) {                 // pick up any newly-standard options
+        if (!acts.some(function (a) { return a.id === d.id; })) acts.push(d);
+      });
       S.data = { activities: acts, votes: votesSoFar, spots: (raw && normalize(raw).spots) || {} };
       pendingActivities = true;
       render(); subscribe();
@@ -1401,6 +1406,13 @@ function viewBallot() {
     + '<button class="primary" id="add-act">Add</button></div>'
     + '<p class="note">Choose the blocks it actually works in \u2014 a dinner plan only ever competes for dinner.</p></div>';
 
+  var missing = DEFAULT_ACTIVITIES.filter(function (d) {
+    return !S.data.activities.some(function (a) { return a.id === d.id || a.name.toLowerCase() === d.name.toLowerCase(); });
+  });
+  if (missing.length) {
+    out += '<p class="note" style="margin-top:14px">Not on the board: ' + esc(missing.map(function (d) { return d.name; }).join(", "))
+      + '. <button class="link" id="add-standards">Add ' + (missing.length === 1 ? "it" : "them") + '</button></p>';
+  }
   out += '<p class="note" style="margin-top:18px">Busy all weekend? '
     + '<button class="link" id="sit-out">Tell everyone you\u2019re out</button>'
     + '<br />Better than staying quiet \u2014 it stops the board waiting on you.</p>';
@@ -1972,6 +1984,16 @@ document.addEventListener("click", function (e) {
       S.data.activities = S.data.activities.filter(function (a) { return a.id !== did; });
       Object.keys(S.data.votes).forEach(function (fid) {
         S.data.votes[fid].picks = S.data.votes[fid].picks.filter(function (x) { return x !== did; });
+      });
+    });
+    return;
+  }
+  if (t.id === "add-standards") {
+    pendingActivities = true;
+    apply(function () {
+      DEFAULT_ACTIVITIES.forEach(function (d) {
+        var there = S.data.activities.some(function (a) { return a.id === d.id || a.name.toLowerCase() === d.name.toLowerCase(); });
+        if (!there) S.data.activities.push({ id: d.id, name: d.name, slots: d.slots.slice(), by: null });
       });
     });
     return;
