@@ -210,6 +210,13 @@ html, body { margin: 0; padding: 0; }
 @media (prefers-reduced-motion: reduce) { .eb * { transition: none !important; } }
 
 
+/* ---- standings: who voted ---- */
+.board-who { margin: 7px 0 0; font-family: var(--util); font-size: 11px; letter-spacing: .02em; line-height: 1.7; }
+.board-who span { display: inline-block; }
+.w-dot { color: var(--hair); padding: 0 6px; }
+.w-free { color: var(--ink-70); }
+.w-busy { color: var(--ink-45); opacity: .6; text-decoration: line-through; text-decoration-thickness: .5px; }
+
 /* ---- section nav ---- */
 .nav { display: flex; gap: 0; border-bottom: 1px solid var(--ink); background: var(--sheet); }
 .nav button { flex: 1; padding: 13px 4px; font-family: var(--util); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-45); border-right: 1px solid var(--hair-soft); }
@@ -1033,7 +1040,7 @@ function viewStandings() {
       + (r.interested.length ? '<p class="board-who">' + r.interested.map(function (fid) {
           var free = r.best.who.indexOf(fid) > -1;
           return '<span class="' + (free ? "w-free" : "w-busy") + '">' + esc(FAM[fid].label.split(" + ")[0]) + '</span>';
-        }).join("") + '</p>' : "")
+        }).join('<span class="w-dot">\u00b7</span>') + '</p>' : "")
       + '</div></li>';
   });
   out += '</ol></section>';
@@ -1117,6 +1124,39 @@ function viewRecapForm() {
     + '</div></section>';
 }
 
+function viewFeed() {
+  var shots = photoList(), out = "";
+  var weeks = [];
+  for (var wi = 0; wi < 10; wi++) {
+    var wd = shiftWeeks(SAT, -wi);
+    weeks.push({ id: iso(wd), label: wd.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + (wi === 0 ? " (this weekend)" : "") });
+  }
+  var chosenWeek = S.photoWeek || WEEK;
+  out += '<section class="block"><h3 class="rule-head"><span>Add photos</span></h3>'
+    + '<div class="field"><label>Which weekend</label><select id="photo-week">'
+    + weeks.map(function (w) { return '<option value="' + w.id + '"' + (w.id === chosenWeek ? " selected" : "") + '>' + esc(w.label) + '</option>'; }).join("")
+    + '</select></div><div class="uploader">'
+    + '<button class="primary" id="pick-photos">Choose photos</button>'
+    + '<span class="upload-note">' + (S.uploading ? S.uploading + " uploading\u2026"
+        : "Shrunk to about 250KB each before upload, so the free database lasts years.") + '</span></div></section>';
+
+  out += '<section class="block"><h3 class="rule-head"><span>The feed</span></h3>';
+  if (!S.photoMeta) return out + '<p class="empty">Loading\u2026</p></section>';
+  if (!shots.length) {
+    return out + '<p class="empty">No photos yet. Add a few from a weekend you\u2019ve already had \u2014 they\u2019ll show up here and on the calendar.</p></section>';
+  }
+  out += '<div class="feed">';
+  shots.slice(0, S.feedShown).forEach(function (p) {
+    var have = S.photoData[p.id];
+    var who = p.by && FAM[p.by] ? FAM[p.by].label.split(" + ")[0] : "";
+    out += '<div class="shot' + (have ? "" : " pending") + '" data-shot="' + esc(p.id) + '" data-open="' + esc(p.id) + '">'
+      + (have ? '<img src="' + have + '" alt="" />' : "")
+      + (who ? '<span class="shot-cap">' + esc(who) + '</span>' : "") + '</div>';
+  });
+  out += '</div>';
+  if (shots.length > S.feedShown) out += '<div class="more-row"><button class="ghost" id="more-shots">Show more</button></div>';
+  return out + '</section>';
+}
 function entriesByDate() {
   var map = {};
   logEntries().forEach(function (e) { map[e.date] = e; });
