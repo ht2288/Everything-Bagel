@@ -210,6 +210,49 @@ html, body { margin: 0; padding: 0; }
 @media (prefers-reduced-motion: reduce) { .eb * { transition: none !important; } }
 
 
+/* ---- venue panel ---- */
+.locked .note { color: var(--ink-45); }
+.next-up { margin: 18px 0 0; padding-top: 14px; border-top: 1px dashed var(--hair); font-size: 13px; line-height: 1.6; color: var(--ink-45); }
+.spot-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hair-soft); }
+.spot-list li { display: flex; align-items: center; border-bottom: 1px solid var(--hair-soft); }
+.spot-list button[data-spot] { flex: 1; display: flex; align-items: center; gap: 12px; padding: 12px 2px; text-align: left; min-width: 0; }
+.spot-list .tick { flex: 0 0 auto; width: 15px; height: 15px; border: 1px solid var(--ink-45); }
+.spot-list li.on .tick { background: var(--claret); border-color: var(--claret); box-shadow: inset 0 0 0 2.5px var(--sheet); }
+.spot-body { min-width: 0; flex: 1; }
+.spot-name { display: block; font-size: 15px; line-height: 1.3; }
+.spot-list li.on .spot-name { color: var(--claret); }
+.host-tag { font-family: var(--util); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-45); font-style: normal; }
+.spot-who { display: block; font-family: var(--util); font-size: 10px; color: var(--ink-45); margin-top: 3px; }
+.spot-num { font-family: var(--display); font-size: 19px; color: var(--ink-45); padding-left: 8px; }
+.spot-list li.on .spot-num { color: var(--claret); }
+.spot-list .map-link { flex: 0 0 auto; padding-left: 8px; color: var(--ink-45); text-decoration: underline; }
+.chip-ago { display: block; font-family: var(--util); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-45); margin-top: 2px; }
+.spot .chips button { text-align: left; }
+
+.btn-hint { font-style: normal; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
+.eb button[disabled] { opacity: .45; cursor: default; }
+
+.my-spot { display: block; font-family: var(--util); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--claret); margin-top: 4px; }
+
+/* ---- sitting out ---- */
+.sitting { padding: 16px; border: 1px solid var(--hair); background: rgba(176,148,96,.09); }
+.sitting p { margin: 0 0 8px; font-size: 14.5px; color: var(--ink-70); }
+.sitting b { font-weight: 400; color: var(--ink); }
+.mx-tag { font-family: var(--util); font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; font-style: normal; color: var(--ink-45); margin-left: 6px; }
+.mx-out { color: var(--ink-45); }
+.mx-quiet { color: var(--ink-45); opacity: .45; }
+.mx-c-out { background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(26,24,21,.09) 2px, rgba(26,24,21,.09) 3px); }
+.mx-c-quiet { border-style: dashed; }
+
+/* ---- discovery card ---- */
+.find { margin-top: 16px; padding: 16px; border: 1px solid var(--claret); background: var(--claret-soft); }
+.find-kicker { font-family: var(--util); font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--claret); margin: 0 0 6px; }
+.find-name { font-family: var(--display); font-size: 25px; line-height: 1.1; margin: 0 0 8px; }
+.find-tags { margin: 0 0 6px; }
+.find-tags span { display: inline-block; font-family: var(--util); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: #7A3535; border: 1px solid rgba(138,43,43,.35); padding: 3px 8px; margin: 0 5px 5px 0; }
+.find-dist { font-size: 12.5px; color: var(--ink-45); margin: 0 0 12px; }
+.find .row-btns a.ghost { text-decoration: none; display: inline-block; }
+
 /* ---- standings: who voted ---- */
 .board-who { margin: 7px 0 0; font-family: var(--util); font-size: 11px; letter-spacing: .02em; line-height: 1.7; }
 .board-who span { display: inline-block; }
@@ -283,7 +326,7 @@ html, body { margin: 0; padding: 0; }
 .cal-day.blank { background: rgba(176,148,96,.05); }
 .cal-day.today { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .cal-day.has { cursor: pointer; }
-.cal-day.has .dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--claret); margin: 5px auto 0; }
+.cal-day.has .dot { display: block; min-width: 6px; height: 6px; line-height: 6px; border-radius: 3px; background: var(--claret); margin: 5px auto 0; color: var(--sheet); font-size: 7px; padding: 0 2px; }
 .cal-day.has .mini { display: block; font-size: 8.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--claret); margin-top: 3px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-day.has:hover { background: rgba(176,148,96,.12); }
 .cal-day.future { color: var(--hair); cursor: default; }
@@ -291,6 +334,8 @@ html, body { margin: 0; padding: 0; }
 .cal-day:not(.future):not(.has):hover::after { content: "+"; position: absolute; left: 0; right: 0; bottom: 6px; font-size: 13px; color: var(--claret); }
 
 /* ---- day detail ---- */
+.day-entry.stacked { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--hair); }
+.day-entry .detail-what { font-size: clamp(22px, 5vw, 32px); }
 .detail-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
 .detail-date { font-family: var(--util); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-45); }
 .detail-what { font-family: var(--display); font-size: clamp(26px, 6vw, 38px); font-weight: 400; line-height: 1.05; margin: 6px 0 10px; }
@@ -430,10 +475,34 @@ var SLOT_LABEL = {}, DAY_LABEL = {};
 SLOTS.forEach(function (s) { SLOT_LABEL[s.id] = s.label; });
 DAYS.forEach(function (d) { DAY_LABEL[d.id] = d.label; });
 
+/* Everyone lives in central/south Orange County. Suggestions and the
+   roulette stay inside this box so nothing lands 40 minutes away. */
+var AREA = {
+  /* Four of the five families are in Irvine or North Tustin, so the centre sits
+     there rather than at the geometric middle, which Laguna Niguel drags south. */
+  lat: 33.690, lon: -117.792,
+  minLat: 33.50, maxLat: 33.83,
+  minLon: -117.97, maxLon: -117.62,
+  maxKm: 24,        // far enough to include Laguna Niguel, not Dana Point
+  decayKm: 7        // how fast a suggestion loses out for being further away
+};
+function kmFrom(lat, lon) {
+  if (typeof lat !== "number" || typeof lon !== "number") return 999;
+  var dLat = (lat - AREA.lat) * 111;
+  var dLon = (lon - AREA.lon) * 111 * Math.cos(AREA.lat * Math.PI / 180);
+  return Math.sqrt(dLat * dLat + dLon * dLon);
+}
+function inArea(lat, lon) {
+  if (typeof lat !== "number" || typeof lon !== "number") return true; // unknown: don't exclude
+  return lat >= AREA.minLat && lat <= AREA.maxLat && lon >= AREA.minLon && lon <= AREA.maxLon;
+}
+
 var DEFAULT_ACTIVITIES = [
   { id: "a-park",   name: "Park + playground", slots: ["morning", "afternoon"] },
   { id: "a-brunch", name: "Brunch",            slots: ["morning", "lunch"] },
+  { id: "a-lunch",  name: "Lunch",             slots: ["lunch"] },
   { id: "a-coffee", name: "Coffee",            slots: ["morning", "afternoon"] },
+  { id: "a-dinner", name: "Dinner",            slots: ["dinner"] },
   { id: "a-beach",  name: "Beach",             slots: ["morning", "lunch", "afternoon"] },
   { id: "a-pool",   name: "Pool day",          slots: ["morning", "lunch", "afternoon"] }
 ];
@@ -480,8 +549,8 @@ var S = {
   feedShown: 9, status: "loading", newSlots: [], confirming: null,
   recap: null, lightbox: null, uploading: 0, setupError: null
 };
-var BLANK = { picks: [], avail: { sat: [], sun: [] } };
-var saveTimer = null, dirty = false, pendingActivities = false, wipeAll = false;
+var BLANK = { out: false, picks: [], avail: { sat: [], sun: [] } };
+var saveTimer = null, dirty = false, pendingActivities = false, wipeAll = false, pendingSpot = false;
 var pendingName = "";
 
 function esc(t) {
@@ -527,7 +596,19 @@ function req(method, path, body) {
 }
 
 function normalize(raw) {
-  var out = { activities: [], votes: {} };
+  var out = { activities: [], votes: {}, spots: {} };
+  var sp = (raw && raw.spots) || {};
+  Object.keys(sp).forEach(function (fid) {
+    if (!FAM[fid] || !sp[fid] || !sp[fid].name) return;
+    out.spots[fid] = {
+      name: String(sp[fid].name).slice(0, 80),
+      sub: sp[fid].sub ? String(sp[fid].sub).slice(0, 90) : null,
+      lat: typeof sp[fid].lat === "number" ? sp[fid].lat : null,
+      lon: typeof sp[fid].lon === "number" ? sp[fid].lon : null,
+      host: !!sp[fid].host,
+      act: sp[fid].act ? String(sp[fid].act) : null
+    };
+  });
   if (raw && Array.isArray(raw.activities)) {
     out.activities = raw.activities.filter(Boolean).map(function (a) {
       return {
@@ -542,6 +623,7 @@ function normalize(raw) {
     if (!FAM[fid]) return;
     var v = votes[fid] || {};
     out.votes[fid] = {
+      out: !!v.out,
       picks: Array.isArray(v.picks) ? v.picks : [],
       avail: {
         sat: (v.avail && Array.isArray(v.avail.sat)) ? v.avail.sat : [],
@@ -560,7 +642,10 @@ function boot() {
     var votesSoFar = raw && raw.votes ? normalize(raw).votes : {};
     return req("GET", "/weekends/" + iso(PREV) + "/activities").then(function (prev) {
       var acts = Array.isArray(prev) && prev.length ? normalize({ activities: prev }).activities : DEFAULT_ACTIVITIES.slice();
-      S.data = { activities: acts, votes: votesSoFar };
+      DEFAULT_ACTIVITIES.forEach(function (d) {                 // pick up any newly-standard options
+        if (!acts.some(function (a) { return a.id === d.id; })) acts.push(d);
+      });
+      S.data = { activities: acts, votes: votesSoFar, spots: (raw && normalize(raw).spots) || {} };
       pendingActivities = true;
       render(); subscribe();
     });
@@ -587,16 +672,31 @@ function refresh() {
     S.data = n; setStatus("ok"); render();
   }).catch(function () { setStatus("error"); });
 }
-/* Entries are keyed by the actual date they happened. Older entries were keyed
-   by the weekend's Saturday with a sat/sun flag, so those get remapped on read. */
+/* A day can hold several get-togethers (park in the morning, dinner that
+   night), so each date holds a map of entries. Older data had one entry per
+   date, and before that Sunday outings were filed under the Saturday. */
 function migrateLog(raw) {
   var out = {};
   Object.keys(raw || {}).forEach(function (k) {
-    var e = raw[k];
-    if (!e) return;
-    var key = k;
-    if (e.day === "sun" && fromIso(k).getDay() === 6) key = iso(new Date(fromIso(k).getFullYear(), fromIso(k).getMonth(), fromIso(k).getDate() + 1));
-    out[key] = e;
+    var v = raw[k];
+    if (!v) return;
+    var isLegacySingle = (v.activityName !== undefined || v.venue !== undefined || v.who !== undefined);
+    var key = k, entries;
+    if (isLegacySingle) {
+      if (v.day === "sun" && fromIso(k).getDay() === 6) {
+        var d = fromIso(k);
+        key = iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1));
+      }
+      entries = {}; entries["e0"] = v;
+    } else {
+      entries = {};
+      Object.keys(v).forEach(function (id) { if (v[id]) entries[id] = v[id]; });
+    }
+    if (!out[key]) out[key] = {};
+    Object.keys(entries).forEach(function (id) {
+      var newId = out[key][id] ? id + "b" : id;
+      out[key][newId] = entries[id];
+    });
   });
   return out;
 }
@@ -607,6 +707,11 @@ function loadLog(force) {
     render();
     return S.log;
   }).catch(function () { S.log = S.log || {}; return S.log; });
+}
+function newEntryId() { return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function entryAt(date, id) {
+  var day = (S.log || {})[date];
+  return day && day[id] ? day[id] : null;
 }
 function loadPhotoMeta(force) {
   if (S.photoMeta && !force) return Promise.resolve(S.photoMeta);
@@ -639,27 +744,87 @@ function flush() {
   if (S.me) {
     var mine = S.data.votes[S.me];
     jobs.push(mine ? req("PUT", base + "/votes/" + S.me, mine) : req("DELETE", base + "/votes/" + S.me));
+    if (pendingSpot) {
+      pendingSpot = false;
+      var sp = S.data.spots && S.data.spots[S.me];
+      jobs.push(sp ? req("PUT", base + "/spots/" + S.me, sp) : req("DELETE", base + "/spots/" + S.me));
+    }
   }
   if (wipeAll) { wipeAll = false; jobs.push(req("DELETE", base + "/votes")); }
   Promise.all(jobs).then(function () { dirty = false; setStatus("ok"); })
     .catch(function () { dirty = false; setStatus("error"); });
 }
+function eligibleActivities() {
+  return tally().filter(function (r) { return r.best.who.length >= 2; });
+}
+/* Don't let the panel jump between activities as votes wobble: stay on the one
+   we're already showing while it still qualifies. */
+function spotActivity() {
+  var elig = eligibleActivities();
+  if (!elig.length) return null;
+  if (S.spotAct) {
+    var kept = elig.filter(function (r) { return r.activity.id === S.spotAct; })[0];
+    if (kept) return kept;
+  }
+  return elig[0];
+}
+function leadActivityId() {
+  var r = spotActivity();
+  return r ? r.activity.id : null;
+}
+function setSpot(name, lat, lon, host, sub) {
+  if (!S.me) return;
+  var act = leadActivityId();
+  apply(function () {
+    if (!S.data.spots) S.data.spots = {};
+    S.data.spots[S.me] = {
+      name: name, sub: sub || null,
+      lat: typeof lat === "number" ? lat : null,
+      lon: typeof lon === "number" ? lon : null,
+      host: !!host, act: act
+    };
+  });
+  pendingSpot = true;
+}
+function clearSpot() {
+  if (!S.me) return;
+  apply(function () { if (S.data.spots) delete S.data.spots[S.me]; });
+  pendingSpot = true;
+}
 function myVote() { return (S.me && S.data.votes[S.me]) || BLANK; }
 function ensureMine() {
-  if (!S.data.votes[S.me]) S.data.votes[S.me] = { picks: [], avail: { sat: [], sun: [] } };
+  if (!S.data.votes[S.me]) S.data.votes[S.me] = { out: false, picks: [], avail: { sat: [], sun: [] } };
   return S.data.votes[S.me];
 }
 
 /* ---------- counting ---------- */
+/* in = responded and available · out = responded, can't make it · quiet = no response */
+function familyState(fid) {
+  var v = S.data.votes[fid];
+  if (!v) return "quiet";
+  if (v.out) return "out";
+  var any = (v.avail.sat.length + v.avail.sun.length) > 0 || v.picks.length > 0;
+  return any ? "in" : "quiet";
+}
+function byState() {
+  var g = { in: [], out: [], quiet: [] };
+  FAMILIES.forEach(function (f) { g[familyState(f.id)].push(f); });
+  return g;
+}
+function names(list) { return list.map(function (f) { return f.label.split(" + ")[0]; }).join(", "); }
+
 function tally() {
   var rows = S.data.activities.map(function (a) {
     var interested = FAMILIES.filter(function (f) {
-      var v = S.data.votes[f.id]; return v && v.picks.indexOf(a.id) > -1;
+      var v = S.data.votes[f.id]; return v && !v.out && v.picks.indexOf(a.id) > -1;
     }).map(function (f) { return f.id; });
     var combos = [];
     DAYS.forEach(function (d) {
       a.slots.forEach(function (slot) {
-        var who = interested.filter(function (fid) { return S.data.votes[fid].avail[d.id].indexOf(slot) > -1; });
+        var who = interested.filter(function (fid) {
+          var vv = S.data.votes[fid];
+          return vv && !vv.out && vv.avail[d.id].indexOf(slot) > -1;
+        });
         combos.push({ day: d.id, slot: slot, who: who });
       });
     });
@@ -679,10 +844,9 @@ function tally() {
 /* venues derived from the log — one source of truth */
 function venueStats() {
   var out = {};
-  Object.keys(S.log || {}).forEach(function (wk) {
-    var e = S.log[wk];
-    if (!e || !e.venue) return;
-    // wk is the date the get-together happened
+  logEntries().forEach(function (e) {
+    var wk = e.date;
+    if (!e.venue) return;
     var key = String(e.venue).trim().toLowerCase();
     if (!key) return;
     if (!out[key]) out[key] = { name: e.venue, activity: e.activityName || "", count: 0, last: wk, first: wk, who: {}, lat: e.lat || null, lon: e.lon || null };
@@ -696,13 +860,31 @@ function venueStats() {
   return out;
 }
 function logEntries() {
-  return Object.keys(S.log || {}).filter(function (k) { return S.log[k]; })
-    .sort().reverse().map(function (k) {
-      var e = S.log[k];
-      e.date = k;
-      e.week = iso(saturdayOf(fromIso(k)));   // which weekend's photos belong to it
-      return e;
+  var out = [];
+  Object.keys(S.log || {}).forEach(function (date) {
+    var day = S.log[date];
+    if (!day) return;
+    Object.keys(day).forEach(function (id) {
+      var e = day[id];
+      if (!e) return;
+      out.push({
+        date: date, id: id,
+        activityName: e.activityName, venue: e.venue, who: e.who || [],
+        lat: e.lat, lon: e.lon, sub: e.sub, ts: e.ts || 0, by: e.by,
+        week: iso(saturdayOf(fromIso(date)))
+      });
     });
+  });
+  out.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.ts || 0) - (b.ts || 0); });
+  return out;
+}
+function entriesOn(date) {
+  return logEntries().filter(function (e) { return e.date === date; });
+}
+function loggedDates() {
+  var seen = {};
+  logEntries().forEach(function (e) { seen[e.date] = 1; });
+  return Object.keys(seen).sort();
 }
 function photoList() {
   var out = [];
@@ -721,28 +903,36 @@ function photoCountFor(week) {
   return m ? Object.keys(m).length : 0;
 }
 
+/* Search by name so Google resolves the actual business page (photos, hours,
+   reviews). Coordinates alone just drop an unnamed pin. Address narrows it
+   down when we have one; bare coordinates are the last resort. */
 function mapsUrl(entry) {
-  if (entry && entry.lat && entry.lon) return "https://www.google.com/maps/search/?api=1&query=" + entry.lat + "," + entry.lon;
-  var name = entry && (entry.venue || entry.name);
-  return name ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(name) : null;
+  if (!entry) return null;
+  var name = entry.venue || entry.name;
+  if (name) {
+    var q = name;
+    if (entry.sub) q += ", " + entry.sub;
+    else if (entry.lat && entry.lon) q += " near " + entry.lat.toFixed(4) + "," + entry.lon.toFixed(4);
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+  }
+  if (entry.lat && entry.lon) return "https://www.google.com/maps/search/?api=1&query=" + entry.lat + "," + entry.lon;
+  return null;
 }
 /* komoot's public Photon instance: open data, no key, built for type-ahead */
 function searchPlaces(q) {
-  var u = "https://photon.komoot.io/api/?limit=6&lang=en&q=" + encodeURIComponent(q);
-  var bias = ls("bagel:near");
-  if (bias && /^-?[\d.]+,-?[\d.]+$/.test(bias)) {
-    var c = bias.split(",");
-    u += "&lat=" + c[0] + "&lon=" + c[1];
-  }
+  var u = "https://photon.komoot.io/api/?limit=10&lang=en&q=" + encodeURIComponent(q)
+    + "&lat=" + AREA.lat + "&lon=" + AREA.lon
+    + "&bbox=" + AREA.minLon + "," + AREA.minLat + "," + AREA.maxLon + "," + AREA.maxLat;
   return fetch(u).then(function (r) { return r.json(); }).then(function (j) {
     return (j.features || []).map(function (f) {
       var pr = f.properties || {}, co = (f.geometry || {}).coordinates || [];
+      if (adultsOnly({ amenity: pr.osm_value, name: pr.name })) return null;
       return {
         name: pr.name || pr.street || "",
         sub: [pr.street && pr.name !== pr.street ? pr.street : "", pr.city || pr.county || "", pr.state || ""].filter(Boolean).join(", "),
         lat: co[1], lon: co[0]
       };
-    }).filter(function (x) { return x.name; });
+    }).filter(function (x) { return x && x.name && inArea(x.lat, x.lon); }).slice(0, 6);
   }).catch(function () { return []; });
 }
 function pastVenues() {
@@ -834,7 +1024,7 @@ function attendance() {
   return { total: total, counts: counts };
 }
 function longestStreak() {
-  var weeks = logEntries().map(function (e) { return iso(saturdayOf(fromIso(e.date))); }).sort();
+  var weeks = loggedDates().map(function (d) { return iso(saturdayOf(fromIso(d))); }).sort();
   weeks = weeks.filter(function (w, i) { return weeks.indexOf(w) === i; });
   var best = 0, run = 0, prev = null;
   weeks.forEach(function (w) {
@@ -847,12 +1037,16 @@ function longestStreak() {
 /* Milestones are derived, never stored — recomputed from the log each time. */
 function milestones() {
   var out = [];
-  var entries = logEntries().slice().reverse(); // oldest first
+  var entries = logEntries().slice().reverse();   // oldest first
   var venueSeen = {}, allFiveBefore = false, run = 0, prev = null, bestRun = 0;
-  entries.forEach(function (e, idx) {
-    var n = idx + 1;
-    if ([1, 10, 25, 50, 100].indexOf(n) > -1) {
-      out.push({ week: e.date, text: n === 1 ? "The first weekend on the board." : n + " weekends together." });
+  var dayCount = 0, lastDate = null;
+
+  entries.forEach(function (e) {
+    var newDay = e.date !== lastDate;
+    if (newDay) { dayCount++; lastDate = e.date; }
+
+    if (newDay && [1, 10, 25, 50, 100].indexOf(dayCount) > -1) {
+      out.push({ week: e.date, text: dayCount === 1 ? "The first day on the board." : dayCount + " days together." });
     }
     if (e.venue) {
       var k = e.venue.trim().toLowerCase();
@@ -864,12 +1058,256 @@ function milestones() {
       out.push({ week: e.date, text: allFiveBefore ? "All five families out together again." : "All five families, for the first time." });
       allFiveBefore = true;
     }
-    var ew = iso(saturdayOf(fromIso(e.date)));
-    if (prev && iso(shiftWeeks(fromIso(prev), 1)) === ew) run++; else run = 1;
-    if (run > bestRun && run >= 3) { bestRun = run; out.push({ week: e.date, text: run + " weekends in a row." }); }
-    prev = ew;
+    if (newDay) {
+      var ew = iso(saturdayOf(fromIso(e.date)));
+      if (prev && iso(shiftWeeks(fromIso(prev), 1)) === ew) run++;
+      else if (prev !== ew) run = 1;
+      if (run > bestRun && run >= 3) { bestRun = run; out.push({ week: e.date, text: run + " weekends in a row." }); }
+      prev = ew;
+    }
   });
-  return out.reverse().slice(0, 12);
+
+  // more than one outing in a single day is worth noting
+  var byDay = {};
+  entries.forEach(function (e) { byDay[e.date] = (byDay[e.date] || 0) + 1; });
+  Object.keys(byDay).forEach(function (d) {
+    if (byDay[d] >= 3) out.push({ week: d, text: byDay[d] + " things in one day." });
+  });
+
+  out.sort(function (a, b) { return a.week < b.week ? 1 : -1; });
+  return out.slice(0, 12);
+}
+
+
+/* ---------- venue history ---------- */
+/* Places we've used before for this activity, longest-since-visit first. */
+function spotsForActivity(name) {
+  var st = venueStats(), out = [];
+  var kindId = kindFor(name).id;
+  Object.keys(st).forEach(function (k) {
+    var v = st[k];
+    if (name) {
+      if (v.activity !== name) return;
+      if (!nameFits(v.name, kindId)) return;   // a beach is never a coffee shop
+    }
+    out.push(v);
+  });
+  out.sort(function (a, b) { return a.last > b.last ? 1 : -1; });
+  return out;
+}
+function spotTally(actId) {
+  var counts = {}, order = [];
+  var spots = (S.data && S.data.spots) || {};
+  Object.keys(spots).forEach(function (fid) {
+    if (actId && spots[fid].act && spots[fid].act !== actId) return;
+    if (actId && !spots[fid].act) return;
+    var key = spots[fid].name.trim().toLowerCase();
+    if (!counts[key]) {
+      counts[key] = { name: spots[fid].name, sub: spots[fid].sub, lat: spots[fid].lat, lon: spots[fid].lon, host: spots[fid].host, who: [] };
+      order.push(key);
+    }
+    counts[key].who.push(fid);
+    if (spots[fid].host) counts[key].host = true;
+  });
+  order.sort(function (a, b) { return counts[b].who.length - counts[a].who.length; });
+  return order.map(function (k) { return counts[k]; });
+}
+/* Weighted so somewhere you haven't been in months beats the usual spot,
+   but distance still dominates — Irvine before Laguna Niguel. */
+function rouletteFrom(list) {
+  var pool = list.filter(function (v) { return inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm; });
+  if (!pool.length) pool = list;
+  if (!pool.length) return null;
+  var weights = pool.map(function (v) {
+    var days = v.last ? (new Date() - fromIso(v.last)) / 86400000 : 200;
+    var stale = Math.min(10, 1 + days / 21);
+    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);
+    return stale * Math.max(0.05, near);
+  });
+  var total = weights.reduce(function (a, b) { return a + b; }, 0);
+  var r = Math.random() * total;
+  for (var i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
+
+/* ---------- discovery via OpenStreetMap ----------
+   OSM has no ratings (nothing free and key-less does), but it carries real
+   family-friendliness tags, which matter more here than a star average. */
+var OSM_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter"
+];
+
+/* Each kind of outing gets its own filters and its own useful signals.
+   A playground matters at a park and means nothing at a cafe. */
+var KINDS = [
+  { id: "pool",   match: /pool|swim|splash|water\s?day/i, homesOnly: true },
+  { id: "park",   match: /park|playground|play|picnic/i,
+    filters: ['["leisure"="playground"]', '["leisure"="park"]'],
+    signals: [
+      { label: "playground", test: function (t) { return t.leisure === "playground" || t.playground; } },
+      { label: "restrooms",  test: function (t) { return t.toilets === "yes" || t["toilets:access"] === "yes"; } },
+      { label: "picnic tables", test: function (t) { return t.picnic_table === "yes" || t.leisure === "picnic_table"; } },
+      { label: "shaded", test: function (t) { return t.shade === "yes" || t.natural === "wood"; } }
+    ] },
+  { id: "food",   match: /brunch|breakfast|lunch|dinner|restaurant|pizza|food|taco|noodle/i,
+    filters: ['["amenity"="restaurant"]', '["amenity"="fast_food"]'],
+    signals: [
+      { label: "outdoor seating", test: function (t) { return t.outdoor_seating === "yes"; } },
+      { label: "takes bookings", test: function (t) { return t.reservation === "yes"; } }
+    ] },
+  { id: "coffee", match: /coffee|cafe|caf\u00e9|pastr|bakery|donut|doughnut/i,
+    filters: ['["amenity"="cafe"]', '["shop"="bakery"]'],
+    signals: [
+      { label: "outdoor seating", test: function (t) { return t.outdoor_seating === "yes"; } }
+    ] },
+  { id: "beach",  match: /beach|tide|shore/i,
+    filters: ['["natural"="beach"]'],
+    signals: [
+      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
+      { label: "lifeguard", test: function (t) { return t.lifeguard === "yes" || t.supervised === "yes"; } },
+      { label: "parking", test: function (t) { return t.parking || t.amenity === "parking"; } }
+    ] },
+  { id: "indoor", match: /museum|library|indoor|aquarium|zoo/i,
+    filters: ['["tourism"="museum"]', '["amenity"="library"]', '["tourism"="aquarium"]'],
+    signals: [
+      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
+      { label: "hands-on", test: function (t) { return t.museum === "children" || t["museum:type"] === "children"; } }
+    ] },
+  { id: "hike",   match: /hike|trail|nature/i,
+    filters: ['["leisure"="nature_reserve"]', '["leisure"="park"]'],
+    signals: [
+      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
+      { label: "stroller friendly", test: function (t) { return t.wheelchair === "yes" || t.smoothness === "excellent"; } }
+    ] }
+];
+var KIND_DEFAULT = { id: "other", filters: ['["leisure"="park"]'],
+  signals: [{ label: "restrooms", test: function (t) { return t.toilets === "yes"; } }] };
+
+/* Anywhere the kids can't come. Excluded outright rather than flagged. */
+var ADULT_AMENITIES = ["bar", "pub", "nightclub", "casino", "stripclub", "brothel",
+  "adult_gaming_centre", "gambling", "swingerclub", "hookah_lounge", "smoking_area"];
+function adultsOnly(t) {
+  if (!t) return false;
+  if (t.adult === "yes") return true;
+  if (ADULT_AMENITIES.indexOf(t.amenity) > -1) return true;
+  if (t.shop === "erotic" || t.shop === "alcohol" || t.shop === "tobacco" || t.shop === "cannabis") return true;
+  var min = parseInt(t.min_age, 10);
+  if (!isNaN(min) && min >= 16) return true;
+  if (t.access === "adults" || t["access:min_age"]) return true;
+  if (/(^|[\s(\-])(21\+|18\+)|adults?[\s-]only|speakeasy|cocktail lounge|wine bar|whiskey bar|taproom|brewpub|nightclub/i.test(t.name || "")) return true;
+  return false;
+}
+
+/* OSM tags are loose — beaches get tagged leisure=park, so do RV parks, golf
+   courses and office parks. The name is usually the better signal. */
+var NAME_RULES = {
+  park: {
+    reject: /\b(beach|shore|strand|cove|harbou?r|marina|pier|golf|country club|cemetery|memorial gardens?|rv park|mobile home|trailer park|business park|office park|corporate|industrial|research park|technology park|parking|park & ?ride|skate ?park|water ?park|nursery|storage)\b/i
+  },
+  beach: {
+    prefer: /\b(beach|shore|strand|cove|bay|state park)\b/i,
+    reject: /\b(parking|lot|club|resort|volleyball court)\b/i
+  },
+  food: {
+    reject: /\b(golf|country club|catering|commissary|food truck|ghost kitchen|gas|fuel|market|liquor)\b/i
+  },
+  coffee: {
+    reject: /\b(roasting (co|plant)|warehouse|distribution|drive-?thru only)\b/i
+  },
+  indoor: { reject: /\b(storage|administration|office)\b/i },
+  hike: { reject: /\b(golf|rv park|mobile home|business park|parking|beach)\b/i },
+  pool: { reject: /\b(supply|service|repair|cleaning|contractor|table|hall)\b/i }
+};
+function nameFits(name, kindId) {
+  var r = NAME_RULES[kindId];
+  if (!r || !name) return true;
+  if (r.reject && r.reject.test(name)) return false;
+  if (r.prefer && !r.prefer.test(name)) return false;
+  return true;
+}
+function tagsFit(t, kindId) {
+  if (!t) return true;
+  if (kindId === "park" && (t.natural === "beach" || t.golf || t.leisure === "golf_course" || t.landuse === "cemetery")) return false;
+  if (kindId === "park" && t.tourism === "caravan_site") return false;
+  if (kindId === "food" && (t.amenity === "fuel" || t.shop)) return false;
+  return true;
+}
+function kindFor(activity) {
+  for (var i = 0; i < KINDS.length; i++) if (KINDS[i].match.test(activity || "")) return KINDS[i];
+  return KIND_DEFAULT;
+}
+function osmQuery(activity) {
+  var k = kindFor(activity);
+  var bbox = AREA.minLat + "," + AREA.minLon + "," + AREA.maxLat + "," + AREA.maxLon;
+  var body = (k.filters || KIND_DEFAULT.filters).map(function (f) {
+    return 'nwr' + f + '["name"](' + bbox + ');';
+  }).join("");
+  return "[out:json][timeout:15];(" + body + ");out center tags 120;";
+}
+function kidSignals(tags, activity) {
+  var k = kindFor(activity), out = [];
+  (k.signals || KIND_DEFAULT.signals).forEach(function (sig) {
+    try { if (sig.test(tags || {})) out.push(sig.label); } catch (e) {}
+  });
+  return out;
+}
+/* fetch never times out on its own, so every attempt gets an abort timer.
+   Without this a stalled mirror leaves the button spinning forever. */
+function fetchWithTimeout(u, opts, ms) {
+  var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  if (ctrl) opts.signal = ctrl.signal;
+  var timer;
+  return new Promise(function (resolve, reject) {
+    timer = setTimeout(function () { if (ctrl) ctrl.abort(); reject(new Error("timeout")); }, ms);
+    fetch(u, opts).then(resolve, reject);
+  })["finally"](function () { clearTimeout(timer); });
+}
+function fetchNewSpots(activity) {
+  var q = osmQuery(activity);
+  var kindId = kindFor(activity).id;
+  function attempt(i) {
+    if (i >= OSM_ENDPOINTS.length) return Promise.resolve(null);
+    return fetchWithTimeout(OSM_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" } }, 9000)
+      .then(function (r) { if (!r.ok) throw new Error("osm " + r.status); return r.json(); })
+      .catch(function () { return attempt(i + 1); });
+  }
+  return attempt(0).then(function (j) {
+    if (!j) return null;
+    var seen = {};
+    Object.keys(venueStats()).forEach(function (k2) { seen[k2] = 1; });
+    return (j.elements || []).map(function (el) {
+      var t = el.tags || {};
+      var lat = el.lat || (el.center && el.center.lat), lon = el.lon || (el.center && el.center.lon);
+      var addr = [t["addr:street"] ? ((t["addr:housenumber"] || "") + " " + t["addr:street"]).trim() : "", t["addr:city"] || ""].filter(Boolean).join(", ");
+      return { name: t.name, sub: addr || null, lat: lat, lon: lon, kid: kidSignals(t, activity), tags: t };
+    }).filter(function (v) {
+      return v.name && typeof v.lat === "number" && !adultsOnly(v.tags)
+        && nameFits(v.name, kindId) && tagsFit(v.tags, kindId)
+        && inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm
+        && !seen[v.name.trim().toLowerCase()];
+    });
+  }).catch(function () { return null; });
+}
+/* Prefer places built for kids, then proximity — and never repeat what the
+   person was just shown, or "Try another" looks broken. */
+function pickNew(list, exclude) {
+  var skip = {};
+  (exclude || []).forEach(function (n) { skip[String(n).toLowerCase()] = 1; });
+  var fresh = list.filter(function (v) { return !skip[v.name.toLowerCase()]; });
+  if (fresh.length) list = fresh;
+  if (!list.length) return null;
+  var scored = list.map(function (v) {
+    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);
+    var w = (1 + v.kid.length * 2) * Math.max(0.03, near);
+    return { v: v, w: w };
+  });
+  var total = scored.reduce(function (a, b) { return a + b.w; }, 0);
+  var r = Math.random() * total;
+  for (var i = 0; i < scored.length; i++) { r -= scored[i].w; if (r <= 0) return scored[i].v; }
+  return scored[scored.length - 1].v;
 }
 
 /* ---------- chrome ---------- */
@@ -997,6 +1435,12 @@ function viewBallot() {
   var v = myVote(), out = "";
   out += '<section class="block"><h3 class="rule-head"><span>Your ballot</span></h3>'
     + '<p class="myhouse">' + esc(FAM[S.me].label) + '<button class="link" id="switch">switch</button></p>';
+  if (v.out) {
+    out += '<div class="sitting"><p><b>You\u2019re sitting this one out.</b> The others know not to wait on you.</p>'
+      + '<button class="link" id="back-in">Actually, we can make it</button></div>'
+      + '</section>';
+    return out;
+  }
   out += '<p class="sub">When is your family free?</p><div class="avail"><span></span>'
     + SLOTS.map(function (s) { return '<span class="avail-col">' + s.label + '</span>'; }).join("");
   DAYS.forEach(function (d) {
@@ -1009,11 +1453,15 @@ function viewBallot() {
   out += '</div><p class="sub">What sounds good?</p><ul class="acts">';
   S.data.activities.forEach(function (a) {
     var picked = v.picks.indexOf(a.id) > -1;
-    var count = FAMILIES.filter(function (f) { var vv = S.data.votes[f.id]; return vv && vv.picks.indexOf(a.id) > -1; }).length;
+    var count = FAMILIES.filter(function (f) { var vv = S.data.votes[f.id]; return vv && !vv.out && vv.picks.indexOf(a.id) > -1; }).length;
+    var mySpot = (S.data.spots || {})[S.me];
+    var spotTag = (mySpot && mySpot.act === a.id)
+      ? '<span class="my-spot">' + (mySpot.host ? "you offered to host" : "you picked " + esc(mySpot.name)) + '</span>' : "";
     out += '<li class="' + (picked ? "on" : "") + '"><button class="act" data-pick="' + esc(a.id) + '" aria-pressed="' + picked + '">'
       + '<span class="tick"></span><span class="act-body"><span class="act-name">' + esc(a.name) + '</span>'
       + '<span class="act-meta">' + a.slots.map(function (s) { return SLOT_LABEL[s].toLowerCase(); }).join(", ")
-      + (a.by && FAM[a.by] ? " \u00b7 proposed by " + esc(FAM[a.by].label.split(" + ")[0]) : "") + '</span></span>'
+      + (a.by && FAM[a.by] ? " \u00b7 proposed by " + esc(FAM[a.by].label.split(" + ")[0]) : "") + '</span>'
+      + spotTag + '</span>'
       + '<span class="act-count">' + (count || "") + '</span></button>'
       + (S.confirming === a.id ? '<button class="drop live" data-drop="' + esc(a.id) + '">Remove</button>'
                                : '<button class="drop" data-ask="' + esc(a.id) + '" aria-label="Remove">\u00d7</button>')
@@ -1022,8 +1470,139 @@ function viewBallot() {
   out += '</ul><div class="add"><input id="new-name" maxlength="80" placeholder="Propose something else" /><div class="chips">'
     + SLOTS.map(function (s) { return '<button class="chip' + (S.newSlots.indexOf(s.id) > -1 ? " on" : "") + '" data-slot="' + s.id + '">' + s.label + '</button>'; }).join("")
     + '<button class="primary" id="add-act">Add</button></div>'
-    + '<p class="note">Choose the blocks it actually works in \u2014 a dinner plan only ever competes for dinner.</p></div></section>';
-  return out;
+    + '<p class="note">Choose the blocks it actually works in \u2014 a dinner plan only ever competes for dinner.</p></div>';
+
+  var missing = DEFAULT_ACTIVITIES.filter(function (d) {
+    return !S.data.activities.some(function (a) { return a.id === d.id || a.name.toLowerCase() === d.name.toLowerCase(); });
+  });
+  if (missing.length) {
+    out += '<p class="note" style="margin-top:14px">Not on the board: ' + esc(missing.map(function (d) { return d.name; }).join(", "))
+      + '. <button class="link" id="add-standards">Add ' + (missing.length === 1 ? "it" : "them") + '</button></p>';
+  }
+  out += '<p class="note" style="margin-top:18px">Busy all weekend? '
+    + '<button class="link" id="sit-out">Tell everyone you\u2019re out</button>'
+    + '<br />Better than staying quiet \u2014 it stops the board waiting on you.</p>';
+
+  var leadNow = tally()[0];
+  if (!leadNow || leadNow.best.who.length < 2) {
+    out += '<p class="next-up">Once two families line up on the same activity and time, a section opens up below for picking the actual spot.</p>';
+  }
+  return out + '</section>';
+}
+function viewSpot() {
+  var rows = tally();
+  var lead = spotActivity();
+  if (!S.data.activities.length) return "";
+  if (!lead) lead = rows[0];
+
+  /* Two families sharing a time is a plan forming — that's enough to start
+     talking about where. Below that, show what's coming so it's not a secret. */
+  var UNLOCK = 2;
+  if (!lead || lead.best.who.length < UNLOCK) {
+    lead = lead || { best: { who: [] } };
+    var need = UNLOCK - lead.best.who.length;
+    return '<section class="block spot locked"><h3 class="rule-head"><span>Where</span></h3>'
+      + '<p class="note" style="margin:0">Waiting on ' + (lead.best.who.length ? need + ' more famil' + (need === 1 ? "y" : "ies") : 'two families')
+      + '. Then: places you\u2019ve been, a search, and a roulette that leans toward somewhere you haven\u2019t been in a while.</p></section>';
+  }
+
+  var name = lead.activity.name;
+  var kind = kindFor(name);
+  var homesOnly = !!kind.homesOnly;
+  var backed = spotTally(lead.activity.id);
+  var mineRaw = (S.data.spots || {})[S.me];
+  var mine = (mineRaw && mineRaw.act === lead.activity.id) ? mineRaw : null;
+  var history = spotsForActivity(name).filter(function (v) {
+    if (backed.some(function (b) { return b.name.toLowerCase() === v.name.toLowerCase(); })) return false;
+    if (!kind.homesOnly) return true;
+    return FAMILIES.some(function (f) { return v.name.toLowerCase().indexOf(f.label.toLowerCase()) === 0; });
+  }).slice(0, 4);
+
+  var pastCount = spotsForActivity(name).length;
+  var elig = eligibleActivities();
+  var out = '<section class="block spot"><h3 class="rule-head"><span>Where for ' + esc(name.toLowerCase()) + '?</span></h3>';
+  if (elig.length > 1) {
+    out += '<div class="chips" style="margin:0 0 14px">'
+      + elig.map(function (r) {
+          return '<button class="chip' + (r.activity.id === lead.activity.id ? " on" : "") + '" data-spotact="' + esc(r.activity.id) + '">'
+            + esc(r.activity.name) + '</button>';
+        }).join("")
+      + '</div><p class="note" style="margin:0 0 14px">More than one could happen \u2014 pick a spot for whichever you\u2019re deciding.</p>';
+  }
+  out += '<p class="note" style="margin:0 0 14px">' + esc(name) + ' is '
+    + (lead.best.who.length >= MAJORITY ? 'the clear winner' : 'in front') + '. '
+    + (homesOnly ? 'This one needs a host \u2014 whoever\u2019s up for it can put their place forward.'
+                 : 'Now the easy part \u2014 back a spot, or let it pick.') + '</p>';
+
+  if (backed.length) {
+    out += '<ul class="spot-list">' + backed.map(function (b) {
+      var isMine = mine && mine.name.toLowerCase() === b.name.toLowerCase();
+      var ml = mapsUrl(b);
+      return '<li class="' + (isMine ? "on" : "") + '"><button data-spot="' + esc(b.name) + '"'
+        + (b.lat ? ' data-lat="' + b.lat + '" data-lon="' + b.lon + '"' : "") + '>'
+        + '<span class="tick"></span><span class="spot-body"><span class="spot-name">' + esc(b.name)
+        + (b.host ? ' <em class="host-tag">offered to host</em>' : "") + '</span>'
+        + '<span class="spot-who">' + b.who.map(function (f) { return esc(FAM[f].label.split(" + ")[0]); }).join(" \u00b7 ") + '</span>'
+        + '</span><span class="spot-num">' + b.who.length + '</span></button>'
+        + (ml ? '<a class="map-link" href="' + esc(ml) + '" target="_blank" rel="noopener">map</a>' : "")
+        + '</li>';
+    }).join("") + '</ul>';
+  }
+
+  if (history.length) {
+    out += '<p class="sub" style="margin-top:16px">Places you\u2019ve been for this</p><div class="chips">'
+      + history.map(function (v) {
+          return '<button class="chip" data-spot="' + esc(v.name) + '"'
+            + (v.lat ? ' data-lat="' + v.lat + '" data-lon="' + v.lon + '"' : "")
+            + '>' + esc(v.name) + '<span class="chip-ago">' + agoText(v.last) + '</span></button>';
+        }).join("") + '</div>';
+  }
+
+  if (!homesOnly) {
+    out += '<div class="field" style="margin-top:16px"><label>Somewhere else</label>'
+      + '<input id="s-venue" autocomplete="off" placeholder="Search Orange County" value="' + esc(S.spotQuery || "") + '" />'
+      + '<div class="suggest" id="venue-suggest"></div></div>';
+  }
+
+  out += '<div class="row-btns" style="margin-top:16px">'
+    + (homesOnly ? "" :
+        '<button class="ghost" id="roulette"' + (pastCount ? "" : " disabled") + '>Somewhere we\u2019ve been'
+        + (pastCount ? "" : ' <em class="btn-hint">none logged yet</em>') + '</button>'
+        + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
+        + (S.discovering ? "Looking\u2026" : "Somewhere new") + '</button>')
+    + (mine ? '<button class="ghost" id="clear-spot">Clear my pick</button>' : "")
+    + '</div>';
+  if (!homesOnly && !pastCount) {
+    out += '<p class="note">No ' + esc(name.toLowerCase()) + ' spots in the log yet \u2014 once you write up a weekend, '
+      + 'they\u2019ll start showing here and in the first roulette.</p>';
+  }
+  if (S.discoverMsg) out += '<p class="note">' + esc(S.discoverMsg) + '</p>';
+  if (S.discovered) {
+    var dv = S.discovered, dml = mapsUrl(dv);
+    out += '<div class="find"><p class="find-kicker">Never been \u2014 how about</p>'
+      + '<p class="find-name">' + esc(dv.name) + '</p>'
+      + (dv.kid.length ? '<p class="find-tags">' + dv.kid.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join("") + '</p>' : "")
+      + '<p class="find-dist">about ' + Math.max(1, Math.round(kmFrom(dv.lat, dv.lon) * 0.621)) + ' miles from central Irvine'
+      + (S.findPool && S.findPool.length > 1 ? ' \u00b7 ' + S.findPool.length + ' new options found' : "") + '</p>'
+      + '<div class="row-btns"><button class="primary" data-spot="' + esc(dv.name) + '" data-lat="' + dv.lat + '" data-lon="' + dv.lon + '"'
+      + (dv.sub ? ' data-sub="' + esc(dv.sub) + '"' : "") + '>Back this</button>'
+      + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
+      + (S.discovering ? "Looking\u2026" : "Try another") + '</button>'
+      + (dml ? '<a class="ghost" href="' + esc(dml) + '" target="_blank" rel="noopener">Reviews</a>' : "")
+      + '</div><p class="tiny">Ratings aren\u2019t in the map data \u2014 the Reviews link opens it in Google Maps.</p></div>';
+  }
+
+  var hosting = !!(mine && mine.host);
+  out += '<p class="note" style="margin-top:16px">'
+    + (hosting
+        ? 'You\u2019ve offered to host <b>' + esc(name.toLowerCase()) + '</b>. '
+        : (homesOnly ? 'Got the space for it? ' : 'Happy to have everyone at yours? '))
+    + '<button class="link" id="offer-host">'
+    + (hosting ? "Withdraw the offer" : "Offer to host " + name.toLowerCase()) + '</button>'
+    + '<br />Offers apply to this activity only \u2014 and only you can put your place forward'
+    + (homesOnly ? ", with no expectation anyone will." : ".") + '</p>';
+
+  return out + '</section>';
 }
 function viewStandings() {
   var rows = tally(), out = "";
@@ -1048,17 +1627,20 @@ function viewStandings() {
     + DAYS.map(function (d) { return '<span class="mx-day">' + d.short + '</span>'; }).join("") + '<span></span>';
   DAYS.forEach(function (d) { SLOTS.forEach(function (s) { out += '<span class="mx-tick">' + s.tick + '</span>'; }); });
   FAMILIES.forEach(function (f) {
-    var v = S.data.votes[f.id];
-    out += '<span class="mx-name' + (v ? "" : " off") + '">' + esc(f.label) + '</span>';
+    var st = familyState(f.id), v = S.data.votes[f.id];
+    out += '<span class="mx-name mx-' + st + '">' + esc(f.label)
+      + (st === "out" ? '<em class="mx-tag">out</em>' : st === "quiet" ? '<em class="mx-tag">no reply</em>' : "") + '</span>';
     DAYS.forEach(function (d) { SLOTS.forEach(function (s) {
-      out += '<span class="mx-cell' + (v && v.avail[d.id].indexOf(s.id) > -1 ? " on" : "") + '"></span>';
+      var on = st === "in" && v.avail[d.id].indexOf(s.id) > -1;
+      out += '<span class="mx-cell mx-c-' + st + (on ? " on" : "") + '"></span>';
     }); });
   });
-  var voted = FAMILIES.filter(function (f) { return S.data.votes[f.id]; });
-  var waiting = FAMILIES.filter(function (f) { return !S.data.votes[f.id]; });
-  out += '</div><p class="caption"><i>Fig. 1</i> \u2014 free blocks by family, Saturday and Sunday. '
-    + voted.length + " of " + FAMILIES.length + " families in"
-    + (waiting.length ? "; waiting on " + esc(waiting.map(function (f) { return f.label; }).join(", ")) + "." : "; everyone\u2019s voted.") + '</p></section>';
+  var g = byState();
+  var bits = [g.in.length + " of " + FAMILIES.length + " families in"];
+  if (g.out.length) bits.push(esc(names(g.out)) + (g.out.length === 1 ? " is" : " are") + " out this weekend");
+  if (g.quiet.length) bits.push("still waiting on " + esc(names(g.quiet)));
+  else if (!g.quiet.length) bits.push("everyone\u2019s replied");
+  out += '</div><p class="caption"><i>Fig. 1</i> \u2014 free blocks by family. ' + bits.join(" \u00b7 ") + '.</p></section>';
   out += '<section class="block tools">'
     + '<button class="ghost' + (S.confirming === "mine" ? " live" : "") + '" id="clear-mine">Clear our vote</button>'
     + '<button class="ghost' + (S.confirming === "all" ? " live" : "") + '" id="clear-all">' + (S.confirming === "all" ? "Reset every family" : "Start over") + '</button>'
@@ -1090,7 +1672,7 @@ function captureRecap() {
   S.recapDraft = { act: a.value, other: o ? o.value : "", venue: v ? v.value : "", date: d ? d.value : S.recap };
 }
 function viewRecapForm() {
-  var key = S.recap, e = (S.log && S.log[key]) || {};
+  var key = S.recap, e = (S.recapId && entryAt(key, S.recapId)) || {};
   var draft = S.recapDraft || {};
   var dateVal = draft.date || key;
   var d = fromIso(dateVal);
@@ -1101,7 +1683,7 @@ function viewRecapForm() {
   var otherVal = draft.other !== undefined ? draft.other : (isOther ? (e.activityName || "") : "");
   var venueVal = draft.venue !== undefined ? draft.venue : (e.venue || "");
   var chosenWho = S.recapWho || [];
-  var isEdit = !!(S.log && S.log[key]);
+  var isEdit = !!S.recapId;
   return '<section class="block"><h3 class="rule-head"><span>' + (isEdit ? "Edit" : "Log") + ' a get-together</span></h3>'
     + '<div class="field"><label>When was it?</label><input type="date" id="r-date" value="' + esc(dateVal) + '" max="' + esc(iso(TODAY)) + '" />'
     + '<p class="tiny">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
@@ -1159,7 +1741,7 @@ function viewFeed() {
 }
 function entriesByDate() {
   var map = {};
-  logEntries().forEach(function (e) { map[e.date] = e; });
+  logEntries().forEach(function (e) { (map[e.date] = map[e.date] || []).push(e); });
   return map;
 }
 function viewCalendar() {
@@ -1179,37 +1761,51 @@ function viewCalendar() {
   for (var b = 0; b < first.getDay(); b++) out += '<span class="cal-day blank"></span>';
   for (var day = 1; day <= lastDay; day++) {
     var key = iso(new Date(year, month, day));
-    var e = byDate[key];
+    var list = byDate[key] || [];
     var isToday = key === iso(TODAY);
     var future = fromIso(key) > TODAY;
-    out += '<button class="cal-day' + (e ? " has" : "") + (isToday ? " today" : "") + (future ? " future" : "") + '"'
-      + (future ? ' disabled' : (e ? ' data-day="' + key + '"' : ' data-log="' + key + '"')) + '>' + day
-      + (e ? '<span class="dot"></span><span class="mini">' + esc((e.activityName || "").split(" ")[0]) + '</span>' : "")
+    out += '<button class="cal-day' + (list.length ? " has" : "") + (isToday ? " today" : "") + (future ? " future" : "") + '"'
+      + (future ? ' disabled' : (list.length ? ' data-day="' + key + '"' : ' data-log="' + key + '"')) + '>' + day
+      + (list.length ? '<span class="dot">' + (list.length > 1 ? list.length : "") + '</span>'
+          + '<span class="mini">' + esc((list[0].activityName || "").split(" ")[0])
+          + (list.length > 1 ? " +" + (list.length - 1) : "") + '</span>' : "")
       + '</button>';
   }
   out += '</div>';
-  var count = Object.keys(byDate).filter(function (k) { return fromIso(k).getMonth() === month && fromIso(k).getFullYear() === year; }).length;
-  out += '<p class="note">' + (count ? count + " get-together" + (count === 1 ? "" : "s") + " this month. "
-    : "Nothing logged this month yet. ") + 'Tap any past day to log one \u2014 including old ones, if you want to fill in history.</p>';
+  var monthKeys = Object.keys(byDate).filter(function (k) { return fromIso(k).getMonth() === month && fromIso(k).getFullYear() === year; });
+  var monthCount = 0;
+  monthKeys.forEach(function (k) { monthCount += byDate[k].length; });
+  out += '<p class="note">' + (monthCount
+      ? monthCount + " get-together" + (monthCount === 1 ? "" : "s") + " across " + monthKeys.length + " day" + (monthKeys.length === 1 ? "" : "s") + ". "
+      : "Nothing logged this month yet. ")
+    + 'Tap any past day to log one \u2014 a day can hold more than one.</p>';
   return out + '</section>';
 }
 function viewDayDetail() {
-  var e = entriesByDate()[S.dayDetail];
-  if (!e) { S.dayDetail = null; return viewCalendar(); }
+  var list = entriesOn(S.dayDetail);
+  if (!list.length) { S.dayDetail = null; return viewCalendar(); }
   var d = fromIso(S.dayDetail);
-  var link = mapsUrl(e);
-  var shots = photoList().filter(function (p) { return p.week === e.week; });
+  var shots = photoList().filter(function (p) { return p.week === list[0].week; });
+
   var out = '<section class="block"><button class="link" id="back-cal">\u2039 back to the month</button>'
-    + '<p class="detail-date" style="margin-top:14px">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + '</p>'
-    + '<h2 class="detail-what">' + esc(e.activityName || "Got together") + '</h2>';
-  if (e.venue) {
-    out += '<p class="detail-venue">' + esc(e.venue)
-      + (link ? '<a class="map-link" href="' + esc(link) + '" target="_blank" rel="noopener">open in maps</a>' : "") + '</p>';
-  }
-  out += '<p class="detail-who">' + ((e.who || []).length
-    ? (e.who || []).map(function (f) { return FAM[f] ? esc(FAM[f].label) : ""; }).filter(Boolean).join(" \u00b7 ")
-    : "Nobody recorded") + '</p>';
-  out += '<div class="row-btns" style="margin-top:18px"><button class="ghost" data-recap="' + e.week + '">Edit</button></div></section>';
+    + '<p class="detail-date" style="margin-top:14px">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    + (list.length > 1 ? ' \u00b7 ' + list.length + ' get-togethers' : "") + '</p>';
+
+  list.forEach(function (e, i) {
+    var link = mapsUrl(e);
+    out += '<div class="day-entry' + (i ? " stacked" : "") + '">'
+      + '<h2 class="detail-what">' + esc(e.activityName || "Got together") + '</h2>'
+      + (e.venue ? '<p class="detail-venue">' + esc(e.venue)
+          + (link ? '<a class="map-link" href="' + esc(link) + '" target="_blank" rel="noopener">open in maps</a>' : "") + '</p>' : "")
+      + '<p class="detail-who">' + ((e.who || []).length
+          ? (e.who || []).map(function (f) { return FAM[f] ? esc(FAM[f].label) : ""; }).filter(Boolean).join(" \u00b7 ")
+          : "Nobody recorded") + '</p>'
+      + '<div class="row-btns" style="margin-top:12px"><button class="ghost" data-edit="' + esc(e.date) + "|" + esc(e.id) + '">Edit</button></div>'
+      + '</div>';
+  });
+
+  out += '<div class="row-btns" style="margin-top:20px">'
+    + '<button class="primary" data-log="' + esc(S.dayDetail) + '">Add another for this day</button></div></section>';
 
   out += '<section class="block"><h3 class="rule-head"><span>Photos from that weekend</span></h3>';
   if (!shots.length) {
@@ -1223,6 +1819,7 @@ function viewDayDetail() {
   }
   return out + '</section>';
 }
+
 
 function viewPlaces() {
   if (!S.log) return '<section class="block"><p class="empty">Loading\u2026</p></section>';
@@ -1376,7 +1973,7 @@ function render() {
     body += viewRecapBar() + viewLede();
     if (!S.me) body += viewPicker();
     else body += '<div class="cols"><div class="col main">' + viewBallot() + '</div><aside class="col side">'
-      + viewStandings() + viewShare() + '</aside></div>';
+      + viewSpot() + viewStandings() + viewShare() + '</aside></div>';
   } else if (S.view === "feed") {
     body = viewFeed();
   } else if (S.view === "calendar") {
@@ -1384,8 +1981,15 @@ function render() {
   } else if (S.view === "places") {
     body = viewPlaces();
   }
+  var keepY = window.scrollY || 0;
   app.innerHTML = body;
   overlay.innerHTML = viewLightbox();
+  if (S.keepScroll !== false && keepY) window.scrollTo(0, keepY);
+  if (S.scrollToFind) {
+    S.scrollToFind = false;
+    var card = document.querySelector(".find");
+    if (card && card.scrollIntoView) card.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
 
   var input = document.getElementById("new-name");
   if (input && pendingName) input.value = pendingName;
@@ -1404,9 +2008,10 @@ function render() {
 document.addEventListener("input", function (e) {
   if (e.target.id === "new-name") pendingName = e.target.value;
   if (e.target.id === "r-venue") { S.recapVenue = null; onVenueType(e.target.value); }
+  if (e.target.id === "s-venue") { S.spotQuery = e.target.value; onVenueType(e.target.value); }
 });
 document.addEventListener("focusin", function (e) {
-  if (e.target.id === "r-venue") onVenueType(e.target.value);
+  if (e.target.id === "r-venue" || e.target.id === "s-venue") onVenueType(e.target.value);
 });
 document.getElementById("photo-input").addEventListener("change", function (e) {
   if (e.target.files && e.target.files.length) uploadPhotos(e.target.files);
@@ -1472,6 +2077,21 @@ document.addEventListener("click", function (e) {
     });
     return;
   }
+  if (t.id === "add-standards") {
+    pendingActivities = true;
+    apply(function () {
+      DEFAULT_ACTIVITIES.forEach(function (d) {
+        var there = S.data.activities.some(function (a) { return a.id === d.id || a.name.toLowerCase() === d.name.toLowerCase(); });
+        if (!there) S.data.activities.push({ id: d.id, name: d.name, slots: d.slots.slice(), by: null });
+      });
+    });
+    return;
+  }
+  if (t.id === "sit-out") {
+    apply(function () { var m = ensureMine(); m.out = true; m.avail = { sat: [], sun: [] }; m.picks = []; });
+    return;
+  }
+  if (t.id === "back-in") { apply(function () { ensureMine().out = false; }); return; }
   if (t.id === "clear-mine") {
     if (S.confirming !== "mine") { S.confirming = "mine"; render(); return; }
     S.confirming = null; apply(function () { delete S.data.votes[S.me]; }); return;
@@ -1482,8 +2102,16 @@ document.addEventListener("click", function (e) {
   }
 
   /* ---- recap ---- */
+  if (d.edit) {
+    var parts = d.edit.split("|");
+    S.recap = parts[0]; S.recapId = parts[1];
+    var ex = entryAt(parts[0], parts[1]);
+    S.recapWho = ex && ex.who ? ex.who.slice() : [];
+    S.recapDraft = null; S.recapVenue = null; S.dayDetail = null; S.recapSource = null; S.confirming = null;
+    render(); return;
+  }
   if (d.recap) {
-    S.recap = d.recap; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null;
+    S.recap = d.recap; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null;
     var existing = (S.log && S.log[d.recap]) || null;
     S.recapWho = existing && existing.who ? existing.who.slice() : [];
     S.recapSource = null;
@@ -1508,6 +2136,11 @@ document.addEventListener("click", function (e) {
   }
   if (d.sugg !== undefined) {
     var pick = (S.suggestions || [])[Number(d.sugg)];
+    if (pick && document.getElementById("s-venue")) {
+      setSpot(pick.name, pick.lat, pick.lon, false, pick.sub || null);
+      S.spotQuery = ""; S.suggestions = [];
+      render(); return;
+    }
     if (pick) {
       captureRecap();
       S.recapDraft = S.recapDraft || {};
@@ -1519,25 +2152,31 @@ document.addEventListener("click", function (e) {
     }
     return;
   }
-  if (t.id === "r-cancel") { S.recap = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null; render(); return; }
+  if (t.id === "r-cancel") { S.recap = null; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null; render(); return; }
   if (t.id === "r-delete") {
     if (S.confirming !== "del") { captureRecap(); S.confirming = "del"; render(); return; }
-    var delKey = S.recap;
-    delete S.log[delKey];
-    S.recap = null; S.recapDraft = null; S.confirming = null; S.dayDetail = null; setStatus("saving"); render();
-    req("DELETE", "/log/" + delKey).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
+    var delKey = S.recap, delId = S.recapId;
+    if (S.log[delKey]) {
+      delete S.log[delKey][delId];
+      if (!Object.keys(S.log[delKey]).length) delete S.log[delKey];
+    }
+    var stillThere = !!S.log[delKey];
+    S.recap = null; S.recapId = null; S.recapDraft = null; S.confirming = null;
+    S.dayDetail = stillThere ? delKey : null;
+    setStatus("saving"); render();
+    req("DELETE", "/log/" + delKey + "/" + delId).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
     return;
   }
   if (d.month) { S.calMonth = d.month; S.dayDetail = null; render(); return; }
   if (d.day) { S.dayDetail = d.day; loadPhotoMeta(); render(); return; }
   if (d.log) {
-    S.recap = d.log; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null; S.recapWho = []; S.confirming = null;
-    S.recapSource = null; render(); return;
+    S.recap = d.log; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null;
+    S.recapWho = []; S.confirming = null; S.recapSource = null; render(); return;
   }
   if (t.id === "back-cal") { S.dayDetail = null; render(); return; }
   if (t.id === "skip-recap") { S.skipRecap = unloggedWeek(); render(); return; }
   if (t.id === "r-save") {
-    var oldKey = S.recap;
+    var oldKey = S.recap, oldId = S.recapId;
     var wk = (document.getElementById("r-date") || {}).value || oldKey;
     var sel = document.getElementById("r-act").value;
     var other = (document.getElementById("r-act-other").value || "").trim();
@@ -1556,19 +2195,90 @@ document.addEventListener("click", function (e) {
       if (known && known.lat) { entry.lat = known.lat; entry.lon = known.lon; }
     }
     S.log = S.log || {};
-    if (oldKey !== wk) delete S.log[oldKey];
-    S.log[wk] = entry;
-    S.recap = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null;
+    var entryId = oldId || newEntryId();
+    if (oldId && S.log[oldKey] && oldKey !== wk) {
+      delete S.log[oldKey][oldId];
+      if (!Object.keys(S.log[oldKey]).length) delete S.log[oldKey];
+    }
+    if (!S.log[wk]) S.log[wk] = {};
+    S.log[wk][entryId] = entry;
+    S.recap = null; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null;
     S.dayDetail = wk; S.calMonth = iso(new Date(fromIso(wk).getFullYear(), fromIso(wk).getMonth(), 1));
     S.view = "calendar"; setStatus("saving"); render();
-    var jobs = [req("PUT", "/log/" + wk, entry)];
-    if (oldKey !== wk) jobs.push(req("DELETE", "/log/" + oldKey));
+    var jobs = [req("PUT", "/log/" + wk + "/" + entryId, entry)];
+    if (oldId && oldKey !== wk) jobs.push(req("DELETE", "/log/" + oldKey + "/" + oldId));
     Promise.all(jobs).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
     return;
   }
 
   /* ---- feed ---- */
   if (d.year) { S.statYear = d.year; render(); return; }
+  if (d.spotact) { S.spotAct = d.spotact; S.discovered = null; S.findPool = null; S.findSeen = []; S.discoverMsg = null; render(); return; }
+  if (d.spot) { setSpot(d.spot, d.lat ? Number(d.lat) : null, d.lon ? Number(d.lon) : null, false, d.sub || null); S.discovered = null; render(); return; }
+  if (t.id === "clear-spot") { clearSpot(); render(); return; }
+  if (t.id === "offer-host") {
+    var cur = (S.data.spots || {})[S.me];
+    var leadId = leadActivityId();
+    if (cur && cur.host && cur.act === leadId) clearSpot();
+    else setSpot(FAM[S.me].label + "\u2019s place", null, null, true, null);
+    render(); return;
+  }
+  if (d.find) {
+    if (S.discovering) return;
+    var rowN = spotActivity();
+    var actN = rowN ? rowN.activity.name : "";
+
+    /* Results are cached per activity so "Try another" cycles through what we
+       already fetched instead of hammering the map service each tap. */
+    if (S.findPool && S.findPoolFor === actN && S.findPool.length) {
+      S.findSeen = S.findSeen || [];
+      var next = pickNew(S.findPool, S.findSeen);
+      if (next) {
+        if (S.findSeen.length >= S.findPool.length - 1) S.findSeen = [];
+        S.findSeen.push(next.name);
+        S.discovered = next;
+        S.discoverMsg = S.findPool.length === 1 ? "That\u2019s the only new one nearby for this." : null;
+        S.scrollToFind = true;
+        render();
+      }
+      return;
+    }
+
+    S.discovering = true; S.discoverMsg = null; render();
+    fetchNewSpots(actN).then(function (list) {
+      if (list === null) {
+        S.discovered = null; S.findPool = null;
+        S.discoverMsg = "Couldn\u2019t reach the map service just now \u2014 try again in a moment, or search by name above.";
+      } else if (!list.length) {
+        S.discovered = null; S.findPool = null;
+        S.discoverMsg = "Nothing new nearby for this one \u2014 you\u2019ve been to most of them already.";
+      } else {
+        S.findPool = list; S.findPoolFor = actN; S.findSeen = [];
+        S.discovered = pickNew(list, []);
+        S.findSeen.push(S.discovered.name);
+        S.discoverMsg = null;
+      }
+    }).catch(function () {
+      S.discovered = null; S.findPool = null;
+      S.discoverMsg = "Something went wrong looking that up \u2014 try again.";
+    }).then(function () {
+      S.discovering = false;
+      S.scrollToFind = !!S.discovered;
+      render();
+    });
+    return;
+  }
+  if (t.id === "roulette") {
+    var row0 = spotActivity();
+    var actName = row0 ? row0.activity.name : null;
+    var pool = spotsForActivity(actName);
+    var hit = pool.length ? rouletteFrom(pool) : null;
+    if (hit) { setSpot(hit.name, hit.lat, hit.lon, false, hit.sub || null); }
+    S.discovered = null;
+    S.discoverMsg = hit ? null
+      : "You haven\u2019t logged anywhere for " + (actName || "this").toLowerCase() + " yet \u2014 try \u201cSomewhere new\u201d.";
+    render(); return;
+  }
   if (t.id === "backup") { exportBackup(false); return; }
   if (t.id === "backup-full") { exportBackup(true); return; }
   if (t.id === "pick-photos") {
