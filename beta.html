@@ -229,6 +229,9 @@ html, body { margin: 0; padding: 0; }
 .chip-ago { display: block; font-family: var(--util); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-45); margin-top: 2px; }
 .spot .chips button { text-align: left; }
 
+.btn-hint { font-style: normal; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
+.eb button[disabled] { opacity: .45; cursor: default; }
+
 .my-spot { display: block; font-family: var(--util); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--claret); margin-top: 4px; }
 
 /* ---- sitting out ---- */
@@ -1459,6 +1462,7 @@ function viewSpot() {
     return FAMILIES.some(function (f) { return v.name.toLowerCase().indexOf(f.label.toLowerCase()) === 0; });
   }).slice(0, 4);
 
+  var pastCount = spotsForActivity(name).length;
   var elig = eligibleActivities();
   var out = '<section class="block spot"><h3 class="rule-head"><span>Where for ' + esc(name.toLowerCase()) + '?</span></h3>';
   if (elig.length > 1) {
@@ -1505,11 +1509,17 @@ function viewSpot() {
   }
 
   out += '<div class="row-btns" style="margin-top:16px">'
-    + (homesOnly || !spotsForActivity(name).length ? "" : '<button class="ghost" id="roulette">Somewhere we\u2019ve been</button>'
+    + (homesOnly ? "" :
+        '<button class="ghost" id="roulette"' + (pastCount ? "" : " disabled") + '>Somewhere we\u2019ve been'
+        + (pastCount ? "" : ' <em class="btn-hint">none logged yet</em>') + '</button>'
         + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
         + (S.discovering ? "Looking\u2026" : "Somewhere new") + '</button>')
     + (mine ? '<button class="ghost" id="clear-spot">Clear my pick</button>' : "")
     + '</div>';
+  if (!homesOnly && !pastCount) {
+    out += '<p class="note">No ' + esc(name.toLowerCase()) + ' spots in the log yet \u2014 once you write up a weekend, '
+      + 'they\u2019ll start showing here and in the first roulette.</p>';
+  }
   if (S.discoverMsg) out += '<p class="note">' + esc(S.discoverMsg) + '</p>';
   if (S.discovered) {
     var dv = S.discovered, dml = mapsUrl(dv);
