@@ -2134,8 +2134,8 @@ document.addEventListener("click", function (e) {
   }
   if (d.find) {
     if (S.discovering) return;
-    var rowsN = tally();
-    var actN = rowsN[0] ? rowsN[0].activity.name : "";
+    var rowN = spotActivity();
+    var actN = rowN ? rowN.activity.name : "";
     S.discovering = true; S.discoverMsg = null; render();
     fetchNewSpots(actN).then(function (list) {
       if (list === null) { S.discovered = null; S.discoverMsg = "Couldn\u2019t reach the map service just now \u2014 try again in a moment, or search by name above."; }
@@ -2151,8 +2151,8 @@ document.addEventListener("click", function (e) {
     return;
   }
   if (t.id === "roulette") {
-    var rows0 = tally();
-    var actName = rows0[0] ? rows0[0].activity.name : null;
+    var row0 = spotActivity();
+    var actName = row0 ? row0.activity.name : null;
     var pool = spotsForActivity(actName);
     var hit = pool.length ? rouletteFrom(pool) : null;
     if (hit) { setSpot(hit.name, hit.lat, hit.lon, false, hit.sub || null); }
