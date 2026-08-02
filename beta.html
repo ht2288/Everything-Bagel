@@ -1078,6 +1078,238 @@ function milestones() {
   return out.slice(0, 12);
 }
 
+
+/* ---------- venue history ---------- */
+/* Places we've used before for this activity, longest-since-visit first. */
+function spotsForActivity(name) {
+  var st = venueStats(), out = [];
+  var kindId = kindFor(name).id;
+  Object.keys(st).forEach(function (k) {
+    var v = st[k];
+    if (name) {
+      if (v.activity !== name) return;
+      if (!nameFits(v.name, kindId)) return;   // a beach is never a coffee shop
+    }
+    out.push(v);
+  });
+  out.sort(function (a, b) { return a.last > b.last ? 1 : -1; });
+  return out;
+}
+function spotTally(actId) {
+  var counts = {}, order = [];
+  var spots = (S.data && S.data.spots) || {};
+  Object.keys(spots).forEach(function (fid) {
+    if (actId && spots[fid].act && spots[fid].act !== actId) return;
+    if (actId && !spots[fid].act) return;
+    var key = spots[fid].name.trim().toLowerCase();
+    if (!counts[key]) {
+      counts[key] = { name: spots[fid].name, sub: spots[fid].sub, lat: spots[fid].lat, lon: spots[fid].lon, host: spots[fid].host, who: [] };
+      order.push(key);
+    }
+    counts[key].who.push(fid);
+    if (spots[fid].host) counts[key].host = true;
+  });
+  order.sort(function (a, b) { return counts[b].who.length - counts[a].who.length; });
+  return order.map(function (k) { return counts[k]; });
+}
+/* Weighted so somewhere you haven't been in months beats the usual spot,
+   but distance still dominates — Irvine before Laguna Niguel. */
+function rouletteFrom(list) {
+  var pool = list.filter(function (v) { return inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm; });
+  if (!pool.length) pool = list;
+  if (!pool.length) return null;
+  var weights = pool.map(function (v) {
+    var days = v.last ? (new Date() - fromIso(v.last)) / 86400000 : 200;
+    var stale = Math.min(10, 1 + days / 21);
+    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);
+    return stale * Math.max(0.05, near);
+  });
+  var total = weights.reduce(function (a, b) { return a + b; }, 0);
+  var r = Math.random() * total;
+  for (var i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
+
+/* ---------- discovery via OpenStreetMap ----------
+   OSM has no ratings (nothing free and key-less does), but it carries real
+   family-friendliness tags, which matter more here than a star average. */
+var OSM_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter"
+];
+
+/* Each kind of outing gets its own filters and its own useful signals.
+   A playground matters at a park and means nothing at a cafe. */
+var KINDS = [
+  { id: "pool",   match: /pool|swim|splash|water\s?day/i, homesOnly: true },
+  { id: "park",   match: /park|playground|play|picnic/i,
+    filters: ['["leisure"="playground"]', '["leisure"="park"]'],
+    signals: [
+      { label: "playground", test: function (t) { return t.leisure === "playground" || t.playground; } },
+      { label: "restrooms",  test: function (t) { return t.toilets === "yes" || t["toilets:access"] === "yes"; } },
+      { label: "picnic tables", test: function (t) { return t.picnic_table === "yes" || t.leisure === "picnic_table"; } },
+      { label: "shaded", test: function (t) { return t.shade === "yes" || t.natural === "wood"; } }
+    ] },
+  { id: "food",   match: /brunch|breakfast|lunch|dinner|restaurant|pizza|food|taco|noodle/i,
+    filters: ['["amenity"="restaurant"]', '["amenity"="fast_food"]'],
+    signals: [
+      { label: "outdoor seating", test: function (t) { return t.outdoor_seating === "yes"; } },
+      { label: "takes bookings", test: function (t) { return t.reservation === "yes"; } }
+    ] },
+  { id: "coffee", match: /coffee|cafe|caf\u00e9|pastr|bakery|donut|doughnut/i,
+    filters: ['["amenity"="cafe"]', '["shop"="bakery"]'],
+    signals: [
+      { label: "outdoor seating", test: function (t) { return t.outdoor_seating === "yes"; } }
+    ] },
+  { id: "beach",  match: /beach|tide|shore/i,
+    filters: ['["natural"="beach"]'],
+    signals: [
+      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
+      { label: "lifeguard", test: function (t) { return t.lifeguard === "yes" || t.supervised === "yes"; } },
+      { label: "parking", test: function (t) { return t.parking || t.amenity === "parking"; } }
+    ] },
+  { id: "indoor", match: /museum|library|indoor|aquarium|zoo/i,
+    filters: ['["tourism"="museum"]', '["amenity"="library"]', '["tourism"="aquarium"]'],
+    signals: [
+      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
+      { label: "hands-on", test: function (t) { return t.museum === "children" || t["museum:type"] === "children"; } }
+    ] },
+  { id: "hike",   match: /hike|trail|nature/i,
+    filters: ['["leisure"="nature_reserve"]', '["leisure"="park"]'],
+    signals: [
+      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
+      { label: "stroller friendly", test: function (t) { return t.wheelchair === "yes" || t.smoothness === "excellent"; } }
+    ] }
+];
+var KIND_DEFAULT = { id: "other", filters: ['["leisure"="park"]'],
+  signals: [{ label: "restrooms", test: function (t) { return t.toilets === "yes"; } }] };
+
+/* Anywhere the kids can't come. Excluded outright rather than flagged. */
+var ADULT_AMENITIES = ["bar", "pub", "nightclub", "casino", "stripclub", "brothel",
+  "adult_gaming_centre", "gambling", "swingerclub", "hookah_lounge", "smoking_area"];
+function adultsOnly(t) {
+  if (!t) return false;
+  if (t.adult === "yes") return true;
+  if (ADULT_AMENITIES.indexOf(t.amenity) > -1) return true;
+  if (t.shop === "erotic" || t.shop === "alcohol" || t.shop === "tobacco" || t.shop === "cannabis") return true;
+  var min = parseInt(t.min_age, 10);
+  if (!isNaN(min) && min >= 16) return true;
+  if (t.access === "adults" || t["access:min_age"]) return true;
+  if (/(^|[\s(\-])(21\+|18\+)|adults?[\s-]only|speakeasy|cocktail lounge|wine bar|whiskey bar|taproom|brewpub|nightclub/i.test(t.name || "")) return true;
+  return false;
+}
+
+/* OSM tags are loose — beaches get tagged leisure=park, so do RV parks, golf
+   courses and office parks. The name is usually the better signal. */
+var NAME_RULES = {
+  park: {
+    reject: /\b(beach|shore|strand|cove|harbou?r|marina|pier|golf|country club|cemetery|memorial gardens?|rv park|mobile home|trailer park|business park|office park|corporate|industrial|research park|technology park|parking|park & ?ride|skate ?park|water ?park|nursery|storage)\b/i
+  },
+  beach: {
+    prefer: /\b(beach|shore|strand|cove|bay|state park)\b/i,
+    reject: /\b(parking|lot|club|resort|volleyball court)\b/i
+  },
+  food: {
+    reject: /\b(golf|country club|catering|commissary|food truck|ghost kitchen|gas|fuel|market|liquor)\b/i
+  },
+  coffee: {
+    reject: /\b(roasting (co|plant)|warehouse|distribution|drive-?thru only)\b/i
+  },
+  indoor: { reject: /\b(storage|administration|office)\b/i },
+  hike: { reject: /\b(golf|rv park|mobile home|business park|parking|beach)\b/i },
+  pool: { reject: /\b(supply|service|repair|cleaning|contractor|table|hall)\b/i }
+};
+function nameFits(name, kindId) {
+  var r = NAME_RULES[kindId];
+  if (!r || !name) return true;
+  if (r.reject && r.reject.test(name)) return false;
+  if (r.prefer && !r.prefer.test(name)) return false;
+  return true;
+}
+function tagsFit(t, kindId) {
+  if (!t) return true;
+  if (kindId === "park" && (t.natural === "beach" || t.golf || t.leisure === "golf_course" || t.landuse === "cemetery")) return false;
+  if (kindId === "park" && t.tourism === "caravan_site") return false;
+  if (kindId === "food" && (t.amenity === "fuel" || t.shop)) return false;
+  return true;
+}
+function kindFor(activity) {
+  for (var i = 0; i < KINDS.length; i++) if (KINDS[i].match.test(activity || "")) return KINDS[i];
+  return KIND_DEFAULT;
+}
+function osmQuery(activity) {
+  var k = kindFor(activity);
+  var bbox = AREA.minLat + "," + AREA.minLon + "," + AREA.maxLat + "," + AREA.maxLon;
+  var body = (k.filters || KIND_DEFAULT.filters).map(function (f) {
+    return 'nwr' + f + '["name"](' + bbox + ');';
+  }).join("");
+  return "[out:json][timeout:15];(" + body + ");out center tags 120;";
+}
+function kidSignals(tags, activity) {
+  var k = kindFor(activity), out = [];
+  (k.signals || KIND_DEFAULT.signals).forEach(function (sig) {
+    try { if (sig.test(tags || {})) out.push(sig.label); } catch (e) {}
+  });
+  return out;
+}
+/* fetch never times out on its own, so every attempt gets an abort timer.
+   Without this a stalled mirror leaves the button spinning forever. */
+function fetchWithTimeout(u, opts, ms) {
+  var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  if (ctrl) opts.signal = ctrl.signal;
+  var timer;
+  return new Promise(function (resolve, reject) {
+    timer = setTimeout(function () { if (ctrl) ctrl.abort(); reject(new Error("timeout")); }, ms);
+    fetch(u, opts).then(resolve, reject);
+  })["finally"](function () { clearTimeout(timer); });
+}
+function fetchNewSpots(activity) {
+  var q = osmQuery(activity);
+  var kindId = kindFor(activity).id;
+  function attempt(i) {
+    if (i >= OSM_ENDPOINTS.length) return Promise.resolve(null);
+    return fetchWithTimeout(OSM_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" } }, 9000)
+      .then(function (r) { if (!r.ok) throw new Error("osm " + r.status); return r.json(); })
+      .catch(function () { return attempt(i + 1); });
+  }
+  return attempt(0).then(function (j) {
+    if (!j) return null;
+    var seen = {};
+    Object.keys(venueStats()).forEach(function (k2) { seen[k2] = 1; });
+    return (j.elements || []).map(function (el) {
+      var t = el.tags || {};
+      var lat = el.lat || (el.center && el.center.lat), lon = el.lon || (el.center && el.center.lon);
+      var addr = [t["addr:street"] ? ((t["addr:housenumber"] || "") + " " + t["addr:street"]).trim() : "", t["addr:city"] || ""].filter(Boolean).join(", ");
+      return { name: t.name, sub: addr || null, lat: lat, lon: lon, kid: kidSignals(t, activity), tags: t };
+    }).filter(function (v) {
+      return v.name && typeof v.lat === "number" && !adultsOnly(v.tags)
+        && nameFits(v.name, kindId) && tagsFit(v.tags, kindId)
+        && inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm
+        && !seen[v.name.trim().toLowerCase()];
+    });
+  }).catch(function () { return null; });
+}
+/* Prefer places built for kids, then proximity — and never repeat what the
+   person was just shown, or "Try another" looks broken. */
+function pickNew(list, exclude) {
+  var skip = {};
+  (exclude || []).forEach(function (n) { skip[String(n).toLowerCase()] = 1; });
+  var fresh = list.filter(function (v) { return !skip[v.name.toLowerCase()]; });
+  if (fresh.length) list = fresh;
+  if (!list.length) return null;
+  var scored = list.map(function (v) {
+    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);
+    var w = (1 + v.kid.length * 2) * Math.max(0.03, near);
+    return { v: v, w: w };
+  });
+  var total = scored.reduce(function (a, b) { return a + b.w; }, 0);
+  var r = Math.random() * total;
+  for (var i = 0; i < scored.length; i++) { r -= scored[i].w; if (r <= 0) return scored[i].v; }
+  return scored[scored.length - 1].v;
+}
+
 /* ---------- chrome ---------- */
 function setStatus(s) {
   S.status = s;
