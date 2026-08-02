@@ -353,6 +353,8 @@ html, body { margin: 0; padding: 0; }
 .suggest .s-name { display: block; }
 .suggest .s-sub { display: block; font-size: 11.5px; color: var(--ink-45); margin-top: 2px; }
 .suggest .s-past { color: var(--claret); }
+.suggest .s-free { color: var(--ink-70); font-style: italic; }
+.suggest button:last-child { background: rgba(176,148,96,.06); }
 
 /* ---- calendar ---- */
 .month { font-family: var(--util); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-45); margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--ink); }
@@ -920,33 +922,46 @@ function mapsUrl(entry) {
 }
 /* komoot's public Photon instance: open data, no key, built for type-ahead */
 function searchPlaces(q) {
-  var u = "https://photon.komoot.io/api/?limit=10&lang=en&q=" + encodeURIComponent(q)
-    + "&lat=" + AREA.lat + "&lon=" + AREA.lon
-    + "&bbox=" + AREA.minLon + "," + AREA.minLat + "," + AREA.maxLon + "," + AREA.maxLat;
+  /* Biased toward home but not boxed in — if someone types a name they want
+     it found, even if it's a drive away. */
+  var u = "https://photon.komoot.io/api/?limit=15&lang=en&q=" + encodeURIComponent(q)
+    + "&lat=" + AREA.lat + "&lon=" + AREA.lon;
   return fetch(u).then(function (r) { return r.json(); }).then(function (j) {
     return (j.features || []).map(function (f) {
       var pr = f.properties || {}, co = (f.geometry || {}).coordinates || [];
-      if (adultsOnly({ amenity: pr.osm_value, name: pr.name })) return null;
       return {
         name: pr.name || pr.street || "",
         sub: [pr.street && pr.name !== pr.street ? pr.street : "", pr.city || pr.county || "", pr.state || ""].filter(Boolean).join(", "),
-        lat: co[1], lon: co[0]
+        lat: co[1], lon: co[0], km: kmFrom(co[1], co[0])
       };
-    }).filter(function (x) { return x && x.name && inArea(x.lat, x.lon); }).slice(0, 6);
+    }).filter(function (x) { return x && x.name && kmFrom(x.lat, x.lon) <= 90; })
+      .sort(function (a, b) { return kmFrom(a.lat, a.lon) - kmFrom(b.lat, b.lon); })
+      .slice(0, 7);
   }).catch(function () { return []; });
 }
 function pastVenues() {
   var st = venueStats();
   return Object.keys(st).map(function (k) { return st[k]; });
 }
-function paintSuggest(items) {
+function paintSuggest(items, typed, searching) {
   var box = document.getElementById("venue-suggest");
   if (!box) return;
-  box.innerHTML = items.map(function (it, i) {
+  var html = items.map(function (it, i) {
     return '<button data-sugg="' + i + '"><span class="s-name' + (it.past ? " s-past" : "") + '">' + esc(it.name)
-      + '</span>' + (it.sub ? '<span class="s-sub">' + esc(it.sub) + '</span>' : "") + '</button>';
+      + '</span>' + (it.sub ? '<span class="s-sub">' + esc(it.sub) + '</span>' : "")
+      + (typeof it.km === "number" && it.km > 25 ? '<span class="s-sub">' + Math.round(it.km * 0.621) + ' miles away</span>' : "")
+      + '</button>';
   }).join("");
+  var term = (typed || "").trim();
+  if (term.length >= 2) {
+    /* OpenStreetMap is volunteer-mapped, so plenty of real places aren't in it.
+       Never leave someone stuck because of that. */
+    html += '<button data-sugg="free"><span class="s-name s-free">Use \u201c' + esc(term) + '\u201d</span>'
+      + '<span class="s-sub">' + (searching ? "still looking\u2026 " : "") + 'not in the map data \u2014 saves the name and still links to Google Maps</span></button>';
+  }
+  box.innerHTML = html;
   S.suggestions = items;
+  S.suggestTyped = term;
 }
 var venueTimer = null;
 function onVenueType(q) {
@@ -954,13 +969,13 @@ function onVenueType(q) {
   var term = (q || "").trim();
   var past = pastVenues().filter(function (v) { return !term || v.name.toLowerCase().indexOf(term.toLowerCase()) > -1; })
     .slice(0, 4).map(function (v) { return { name: v.name, sub: "been here " + v.count + "\u00d7", lat: v.lat, lon: v.lon, past: true }; });
-  paintSuggest(past);
+  paintSuggest(past, term, term.length >= 3);
   if (term.length < 3) return;
   venueTimer = setTimeout(function () {
     searchPlaces(term).then(function (hits) {
       var seen = {};
       past.forEach(function (p2) { seen[p2.name.toLowerCase()] = 1; });
-      paintSuggest(past.concat(hits.filter(function (h) { return !seen[h.name.toLowerCase()]; })));
+      paintSuggest(past.concat(hits.filter(function (h) { return !seen[h.name.toLowerCase()]; })), term, false);
     });
   }, 350);
 }
@@ -1695,7 +1710,9 @@ function viewRecapForm() {
     + '<div class="field"><label>Where?</label>'
     + '<input id="r-venue" autocomplete="off" placeholder="Start typing a place" value="' + esc(venueVal) + '" />'
     + '<div class="suggest" id="venue-suggest"></div>'
-    + (S.recapVenue && S.recapVenue.lat ? '<p class="tiny">Pinned on the map \u2014 the calendar entry will link straight to it.</p>' : "")
+    + (S.recapVenue && S.recapVenue.lat
+        ? '<p class="tiny">Pinned on the map \u2014 the calendar entry will link straight to it.</p>'
+        : '<p class="tiny">Suggestions come from OpenStreetMap, which misses plenty of real places. If yours isn\u2019t listed, just type it \u2014 it saves fine either way.</p>')
     + '</div>'
     + '<div class="field"><label>Who came?</label><div class="who-grid">'
     + FAMILIES.map(function (f) { return '<button data-who="' + f.id + '" class="' + (chosenWho.indexOf(f.id) > -1 ? "on" : "") + '">' + esc(f.label) + '</button>'; }).join("")
@@ -2135,7 +2152,10 @@ document.addEventListener("click", function (e) {
     render(); return;
   }
   if (d.sugg !== undefined) {
-    var pick = (S.suggestions || [])[Number(d.sugg)];
+    var pick = d.sugg === "free"
+      ? { name: S.suggestTyped, lat: null, lon: null, sub: null }
+      : (S.suggestions || [])[Number(d.sugg)];
+    if (pick && !pick.name) pick = null;
     if (pick && document.getElementById("s-venue")) {
       setSpot(pick.name, pick.lat, pick.lon, false, pick.sub || null);
       S.spotQuery = ""; S.suggestions = [];
