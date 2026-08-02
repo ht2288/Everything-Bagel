@@ -326,7 +326,7 @@ html, body { margin: 0; padding: 0; }
 .cal-day.blank { background: rgba(176,148,96,.05); }
 .cal-day.today { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .cal-day.has { cursor: pointer; }
-.cal-day.has .dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--claret); margin: 5px auto 0; }
+.cal-day.has .dot { display: block; min-width: 6px; height: 6px; line-height: 6px; border-radius: 3px; background: var(--claret); margin: 5px auto 0; color: var(--sheet); font-size: 7px; padding: 0 2px; }
 .cal-day.has .mini { display: block; font-size: 8.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--claret); margin-top: 3px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-day.has:hover { background: rgba(176,148,96,.12); }
 .cal-day.future { color: var(--hair); cursor: default; }
@@ -334,6 +334,8 @@ html, body { margin: 0; padding: 0; }
 .cal-day:not(.future):not(.has):hover::after { content: "+"; position: absolute; left: 0; right: 0; bottom: 6px; font-size: 13px; color: var(--claret); }
 
 /* ---- day detail ---- */
+.day-entry.stacked { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--hair); }
+.day-entry .detail-what { font-size: clamp(22px, 5vw, 32px); }
 .detail-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
 .detail-date { font-family: var(--util); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-45); }
 .detail-what { font-family: var(--display); font-size: clamp(26px, 6vw, 38px); font-weight: 400; line-height: 1.05; margin: 6px 0 10px; }
@@ -670,16 +672,31 @@ function refresh() {
     S.data = n; setStatus("ok"); render();
   }).catch(function () { setStatus("error"); });
 }
-/* Entries are keyed by the actual date they happened. Older entries were keyed
-   by the weekend's Saturday with a sat/sun flag, so those get remapped on read. */
+/* A day can hold several get-togethers (park in the morning, dinner that
+   night), so each date holds a map of entries. Older data had one entry per
+   date, and before that Sunday outings were filed under the Saturday. */
 function migrateLog(raw) {
   var out = {};
   Object.keys(raw || {}).forEach(function (k) {
-    var e = raw[k];
-    if (!e) return;
-    var key = k;
-    if (e.day === "sun" && fromIso(k).getDay() === 6) key = iso(new Date(fromIso(k).getFullYear(), fromIso(k).getMonth(), fromIso(k).getDate() + 1));
-    out[key] = e;
+    var v = raw[k];
+    if (!v) return;
+    var isLegacySingle = (v.activityName !== undefined || v.venue !== undefined || v.who !== undefined);
+    var key = k, entries;
+    if (isLegacySingle) {
+      if (v.day === "sun" && fromIso(k).getDay() === 6) {
+        var d = fromIso(k);
+        key = iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1));
+      }
+      entries = {}; entries["e0"] = v;
+    } else {
+      entries = {};
+      Object.keys(v).forEach(function (id) { if (v[id]) entries[id] = v[id]; });
+    }
+    if (!out[key]) out[key] = {};
+    Object.keys(entries).forEach(function (id) {
+      var newId = out[key][id] ? id + "b" : id;
+      out[key][newId] = entries[id];
+    });
   });
   return out;
 }
@@ -690,6 +707,11 @@ function loadLog(force) {
     render();
     return S.log;
   }).catch(function () { S.log = S.log || {}; return S.log; });
+}
+function newEntryId() { return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function entryAt(date, id) {
+  var day = (S.log || {})[date];
+  return day && day[id] ? day[id] : null;
 }
 function loadPhotoMeta(force) {
   if (S.photoMeta && !force) return Promise.resolve(S.photoMeta);
@@ -822,10 +844,9 @@ function tally() {
 /* venues derived from the log — one source of truth */
 function venueStats() {
   var out = {};
-  Object.keys(S.log || {}).forEach(function (wk) {
-    var e = S.log[wk];
-    if (!e || !e.venue) return;
-    // wk is the date the get-together happened
+  logEntries().forEach(function (e) {
+    var wk = e.date;
+    if (!e.venue) return;
     var key = String(e.venue).trim().toLowerCase();
     if (!key) return;
     if (!out[key]) out[key] = { name: e.venue, activity: e.activityName || "", count: 0, last: wk, first: wk, who: {}, lat: e.lat || null, lon: e.lon || null };
@@ -839,13 +860,31 @@ function venueStats() {
   return out;
 }
 function logEntries() {
-  return Object.keys(S.log || {}).filter(function (k) { return S.log[k]; })
-    .sort().reverse().map(function (k) {
-      var e = S.log[k];
-      e.date = k;
-      e.week = iso(saturdayOf(fromIso(k)));   // which weekend's photos belong to it
-      return e;
+  var out = [];
+  Object.keys(S.log || {}).forEach(function (date) {
+    var day = S.log[date];
+    if (!day) return;
+    Object.keys(day).forEach(function (id) {
+      var e = day[id];
+      if (!e) return;
+      out.push({
+        date: date, id: id,
+        activityName: e.activityName, venue: e.venue, who: e.who || [],
+        lat: e.lat, lon: e.lon, sub: e.sub, ts: e.ts || 0, by: e.by,
+        week: iso(saturdayOf(fromIso(date)))
+      });
     });
+  });
+  out.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.ts || 0) - (b.ts || 0); });
+  return out;
+}
+function entriesOn(date) {
+  return logEntries().filter(function (e) { return e.date === date; });
+}
+function loggedDates() {
+  var seen = {};
+  logEntries().forEach(function (e) { seen[e.date] = 1; });
+  return Object.keys(seen).sort();
 }
 function photoList() {
   var out = [];
@@ -985,7 +1024,7 @@ function attendance() {
   return { total: total, counts: counts };
 }
 function longestStreak() {
-  var weeks = logEntries().map(function (e) { return iso(saturdayOf(fromIso(e.date))); }).sort();
+  var weeks = loggedDates().map(function (d) { return iso(saturdayOf(fromIso(d))); }).sort();
   weeks = weeks.filter(function (w, i) { return weeks.indexOf(w) === i; });
   var best = 0, run = 0, prev = null;
   weeks.forEach(function (w) {
@@ -998,12 +1037,16 @@ function longestStreak() {
 /* Milestones are derived, never stored — recomputed from the log each time. */
 function milestones() {
   var out = [];
-  var entries = logEntries().slice().reverse(); // oldest first
+  var entries = logEntries().slice().reverse();   // oldest first
   var venueSeen = {}, allFiveBefore = false, run = 0, prev = null, bestRun = 0;
-  entries.forEach(function (e, idx) {
-    var n = idx + 1;
-    if ([1, 10, 25, 50, 100].indexOf(n) > -1) {
-      out.push({ week: e.date, text: n === 1 ? "The first weekend on the board." : n + " weekends together." });
+  var dayCount = 0, lastDate = null;
+
+  entries.forEach(function (e) {
+    var newDay = e.date !== lastDate;
+    if (newDay) { dayCount++; lastDate = e.date; }
+
+    if (newDay && [1, 10, 25, 50, 100].indexOf(dayCount) > -1) {
+      out.push({ week: e.date, text: dayCount === 1 ? "The first day on the board." : dayCount + " days together." });
     }
     if (e.venue) {
       var k = e.venue.trim().toLowerCase();
@@ -1015,247 +1058,24 @@ function milestones() {
       out.push({ week: e.date, text: allFiveBefore ? "All five families out together again." : "All five families, for the first time." });
       allFiveBefore = true;
     }
-    var ew = iso(saturdayOf(fromIso(e.date)));
-    if (prev && iso(shiftWeeks(fromIso(prev), 1)) === ew) run++; else run = 1;
-    if (run > bestRun && run >= 3) { bestRun = run; out.push({ week: e.date, text: run + " weekends in a row." }); }
-    prev = ew;
-  });
-  return out.reverse().slice(0, 12);
-}
-
-/* Places we've used before for this activity, freshest-need first. */
-function spotsForActivity(name) {
-  var st = venueStats(), out = [];
-  var kindId = kindFor(name).id;
-  Object.keys(st).forEach(function (k) {
-    var v = st[k];
-    if (name) {
-      /* Only places actually used for this activity, and never one whose name
-         says it's something else (a beach is not a coffee shop). */
-      if (v.activity !== name) return;
-      if (!nameFits(v.name, kindId)) return;
+    if (newDay) {
+      var ew = iso(saturdayOf(fromIso(e.date)));
+      if (prev && iso(shiftWeeks(fromIso(prev), 1)) === ew) run++;
+      else if (prev !== ew) run = 1;
+      if (run > bestRun && run >= 3) { bestRun = run; out.push({ week: e.date, text: run + " weekends in a row." }); }
+      prev = ew;
     }
-    out.push(v);
   });
-  out.sort(function (a, b) { return a.last > b.last ? 1 : -1; });  // longest since last visit first
-  return out;
-}
-function spotTally(actId) {
-  var counts = {}, order = [];
-  var spots = (S.data && S.data.spots) || {};
-  Object.keys(spots).forEach(function (fid) {
-    if (actId && spots[fid].act && spots[fid].act !== actId) return;   // backed for a different activity
-    if (actId && !spots[fid].act) return;                              // legacy entry, don't assume
-    var key = spots[fid].name.trim().toLowerCase();
-    if (!counts[key]) { counts[key] = { name: spots[fid].name, sub: spots[fid].sub, lat: spots[fid].lat, lon: spots[fid].lon, host: spots[fid].host, who: [] }; order.push(key); }
-    counts[key].who.push(fid);
-    if (spots[fid].host) counts[key].host = true;
+
+  // more than one outing in a single day is worth noting
+  var byDay = {};
+  entries.forEach(function (e) { byDay[e.date] = (byDay[e.date] || 0) + 1; });
+  Object.keys(byDay).forEach(function (d) {
+    if (byDay[d] >= 3) out.push({ week: d, text: byDay[d] + " things in one day." });
   });
-  order.sort(function (a, b) { return counts[b].who.length - counts[a].who.length; });
-  return order.map(function (k) { return counts[k]; });
-}
-/* Weighted so somewhere you haven't been in months beats the usual spot. */
-function rouletteFrom(list) {
-  var pool = list.filter(function (v) { return inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm; });
-  if (!pool.length) pool = list;
-  if (!pool.length) return null;
-  var weights = pool.map(function (v) {
-    var days = v.last ? (new Date() - fromIso(v.last)) / 86400000 : 200;
-    var stale = Math.min(10, 1 + days / 21);
-    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);   // strong pull toward the middle
-    return stale * Math.max(0.05, near);
-  });
-  var total = weights.reduce(function (a, b) { return a + b; }, 0);
-  var r = Math.random() * total;
-  for (var i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
-  return pool[pool.length - 1];
-}
 
-/* ---- discovery via OpenStreetMap ----
-   OSM has no ratings (nothing free and key-less does), but it does carry real
-   family-friendliness tags, which is the signal that actually matters here. */
-var OSM_ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter"
-];
-
-/* Each kind of outing gets its own OSM filters and its own set of useful
-   signals. A playground matters at a park and means nothing at a cafe. */
-var KINDS = [
-  { id: "pool",   match: /pool|swim|splash|water\s?day/i, homesOnly: true },
-  { id: "park",   match: /park|playground|play|picnic/i,
-    filters: ['["leisure"="playground"]', '["leisure"="park"]'],
-    signals: [
-      { label: "playground", test: function (t) { return t.leisure === "playground" || t.playground; } },
-      { label: "restrooms",  test: function (t) { return t.toilets === "yes" || t["toilets:access"] === "yes"; } },
-      { label: "picnic tables", test: function (t) { return t.picnic_table === "yes" || t.leisure === "picnic_table"; } },
-      { label: "shaded", test: function (t) { return t.shade === "yes" || t.natural === "wood"; } }
-    ] },
-  { id: "food",   match: /brunch|breakfast|lunch|dinner|restaurant|pizza|food|taco|noodle/i,
-    filters: ['["amenity"="restaurant"]', '["amenity"="fast_food"]'],
-    signals: [
-      { label: "outdoor seating", test: function (t) { return t.outdoor_seating === "yes"; } },
-      { label: "takes bookings", test: function (t) { return t.reservation === "yes"; } }
-    ] },
-  { id: "coffee", match: /coffee|cafe|caf\u00e9|pastr|bakery|donut|doughnut/i,
-    filters: ['["amenity"="cafe"]', '["shop"="bakery"]'],
-    signals: [
-      { label: "outdoor seating", test: function (t) { return t.outdoor_seating === "yes"; } }
-    ] },
-  { id: "beach",  match: /beach|tide|shore/i,
-    filters: ['["natural"="beach"]'],
-    signals: [
-      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
-      { label: "lifeguard", test: function (t) { return t.lifeguard === "yes" || t.supervised === "yes"; } },
-      { label: "parking", test: function (t) { return t.parking || t.amenity === "parking"; } }
-    ] },
-  { id: "indoor", match: /museum|library|indoor|aquarium|zoo/i,
-    filters: ['["tourism"="museum"]', '["amenity"="library"]', '["tourism"="aquarium"]'],
-    signals: [
-      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
-      { label: "hands-on", test: function (t) { return t.museum === "children" || t["museum:type"] === "children"; } }
-    ] },
-  { id: "hike",   match: /hike|trail|nature/i,
-    filters: ['["leisure"="nature_reserve"]', '["leisure"="park"]'],
-    signals: [
-      { label: "restrooms", test: function (t) { return t.toilets === "yes"; } },
-      { label: "stroller friendly", test: function (t) { return t.wheelchair === "yes" || t.smoothness === "excellent"; } }
-    ] }
-];
-var KIND_DEFAULT = { id: "other", filters: ['["leisure"="park"]'],
-  signals: [{ label: "restrooms", test: function (t) { return t.toilets === "yes"; } }] };
-
-/* Anywhere the kids can't come. Excluded outright rather than flagged. */
-var ADULT_AMENITIES = ["bar", "pub", "nightclub", "casino", "stripclub", "brothel",
-  "adult_gaming_centre", "gambling", "swingerclub", "hookah_lounge", "smoking_area"];
-function adultsOnly(t) {
-  if (!t) return false;
-  if (t.adult === "yes") return true;
-  if (ADULT_AMENITIES.indexOf(t.amenity) > -1) return true;
-  if (t.shop === "erotic" || t.shop === "alcohol" || t.shop === "tobacco" || t.shop === "cannabis") return true;
-  if (t.leisure === "adult_gaming_centre" || t.leisure === "hackerspace") return false;
-  var min = parseInt(t.min_age, 10);
-  if (!isNaN(min) && min >= 16) return true;
-  if (t.access === "adults" || t["access:min_age"]) return true;
-  if (/(^|[\s(\-])(21\+|18\+)|adults?[\s-]only|speakeasy|cocktail lounge|wine bar|whiskey bar|taproom|brewpub|nightclub/i.test(t.name || "")) return true;
-  return false;
-}
-
-/* OSM tags are loose — beaches get tagged leisure=park, so do RV parks, golf
-   courses and office parks. The name is usually the better signal, so each
-   kind rejects names that plainly describe something else. */
-var NAME_RULES = {
-  park: {
-    reject: /\b(beach|shore|strand|cove|harbou?r|marina|pier|golf|country club|cemetery|memorial gardens?|rv park|mobile home|trailer park|business park|office park|corporate|industrial|research park|technology park|parking|park & ?ride|skate ?park|water ?park|nursery|storage)\b/i
-  },
-  beach: {
-    prefer: /\b(beach|shore|strand|cove|bay|state park)\b/i,
-    reject: /\b(parking|lot|club|resort|volleyball court)\b/i
-  },
-  food: {
-    reject: /\b(golf|country club|catering|commissary|food truck|ghost kitchen|gas|fuel|market|liquor)\b/i
-  },
-  coffee: {
-    reject: /\b(roasting (co|plant)|warehouse|distribution|drive-?thru only)\b/i
-  },
-  indoor: {
-    reject: /\b(storage|administration|office)\b/i
-  },
-  hike: {
-    reject: /\b(golf|rv park|mobile home|business park|parking|beach)\b/i
-  },
-  pool: { reject: /\b(supply|service|repair|cleaning|contractor|table|hall)\b/i }
-};
-function nameFits(name, kindId) {
-  var r = NAME_RULES[kindId];
-  if (!r || !name) return true;
-  if (r.reject && r.reject.test(name)) return false;
-  if (r.prefer && !r.prefer.test(name)) return false;
-  return true;
-}
-/* Tags can also contradict the category outright. */
-function tagsFit(t, kindId) {
-  if (!t) return true;
-  if (kindId === "park" && (t.natural === "beach" || t.golf || t.leisure === "golf_course" || t.landuse === "cemetery")) return false;
-  if (kindId === "park" && t.tourism === "caravan_site") return false;
-  if (kindId === "food" && (t.amenity === "fuel" || t.shop)) return false;
-  return true;
-}
-
-function kindFor(activity) {
-  for (var i = 0; i < KINDS.length; i++) if (KINDS[i].match.test(activity || "")) return KINDS[i];
-  return KIND_DEFAULT;
-}
-function osmQuery(activity) {
-  var k = kindFor(activity);
-  var bbox = AREA.minLat + "," + AREA.minLon + "," + AREA.maxLat + "," + AREA.maxLon;
-  var body = (k.filters || KIND_DEFAULT.filters).map(function (f) {
-    return 'nwr' + f + '["name"](' + bbox + ');';
-  }).join("");
-  return "[out:json][timeout:15];(" + body + ");out center tags 120;";
-}
-function kidSignals(tags, activity) {
-  var k = kindFor(activity), out = [];
-  (k.signals || KIND_DEFAULT.signals).forEach(function (sig) {
-    try { if (sig.test(tags || {})) out.push(sig.label); } catch (e) {}
-  });
-  return out;
-}
-/* fetch never times out on its own, so every attempt gets an abort timer.
-   Without this a stalled Overpass mirror leaves the button spinning forever. */
-function fetchWithTimeout(u, opts, ms) {
-  var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-  if (ctrl) opts.signal = ctrl.signal;
-  var timer;
-  return new Promise(function (resolve, reject) {
-    timer = setTimeout(function () { if (ctrl) ctrl.abort(); reject(new Error("timeout")); }, ms);
-    fetch(u, opts).then(resolve, reject);
-  }).finally(function () { clearTimeout(timer); });
-}
-function fetchNewSpots(activity) {
-  var q = osmQuery(activity);
-  function attempt(i) {
-    if (i >= OSM_ENDPOINTS.length) return Promise.resolve(null);   // null = couldn't reach anything
-    return fetchWithTimeout(OSM_ENDPOINTS[i], { method: "POST", body: "data=" + encodeURIComponent(q),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" } }, 9000)
-      .then(function (r) { if (!r.ok) throw new Error("osm " + r.status); return r.json(); })
-      .catch(function () { return attempt(i + 1); });
-  }
-  var kid_kindId = kindFor(activity).id;
-  return attempt(0).then(function (j) {
-    if (!j) return null;
-    var seen = {};
-    Object.keys(venueStats()).forEach(function (k2) { seen[k2] = 1; });
-    return (j.elements || []).map(function (el) {
-      var t = el.tags || {};
-      var lat = el.lat || (el.center && el.center.lat), lon = el.lon || (el.center && el.center.lon);
-      var addr = [t["addr:street"] ? ((t["addr:housenumber"] || "") + " " + t["addr:street"]).trim() : "", t["addr:city"] || ""].filter(Boolean).join(", ");
-      return { name: t.name, sub: addr || null, lat: lat, lon: lon, kid: kidSignals(t, activity), tags: t };
-    }).filter(function (v) {
-      return v.name && typeof v.lat === "number" && !adultsOnly(v.tags)
-        && nameFits(v.name, kid_kindId) && tagsFit(v.tags, kid_kindId)
-        && inArea(v.lat, v.lon) && kmFrom(v.lat, v.lon) <= AREA.maxKm
-        && !seen[v.name.trim().toLowerCase()];
-    });
-  }).catch(function () { return null; });
-}
-/* Prefer places that look built for kids, then closer to the middle of everyone. */
-function pickNew(list, exclude) {
-  var skip = {};
-  (exclude || []).forEach(function (n) { skip[String(n).toLowerCase()] = 1; });
-  var fresh = list.filter(function (v) { return !skip[v.name.toLowerCase()]; });
-  if (fresh.length) list = fresh;          // fall back to the whole list once exhausted
-  if (!list.length) return null;
-  var scored = list.map(function (v) {
-    var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);
-    var w = (1 + v.kid.length * 2) * Math.max(0.03, near);
-    return { v: v, w: w };
-  });
-  var total = scored.reduce(function (a, b) { return a + b.w; }, 0);
-  var r = Math.random() * total;
-  for (var i = 0; i < scored.length; i++) { r -= scored[i].w; if (r <= 0) return scored[i].v; }
-  return scored[scored.length - 1].v;
+  out.sort(function (a, b) { return a.week < b.week ? 1 : -1; });
+  return out.slice(0, 12);
 }
 
 /* ---------- chrome ---------- */
@@ -1620,7 +1440,7 @@ function captureRecap() {
   S.recapDraft = { act: a.value, other: o ? o.value : "", venue: v ? v.value : "", date: d ? d.value : S.recap };
 }
 function viewRecapForm() {
-  var key = S.recap, e = (S.log && S.log[key]) || {};
+  var key = S.recap, e = (S.recapId && entryAt(key, S.recapId)) || {};
   var draft = S.recapDraft || {};
   var dateVal = draft.date || key;
   var d = fromIso(dateVal);
@@ -1631,7 +1451,7 @@ function viewRecapForm() {
   var otherVal = draft.other !== undefined ? draft.other : (isOther ? (e.activityName || "") : "");
   var venueVal = draft.venue !== undefined ? draft.venue : (e.venue || "");
   var chosenWho = S.recapWho || [];
-  var isEdit = !!(S.log && S.log[key]);
+  var isEdit = !!S.recapId;
   return '<section class="block"><h3 class="rule-head"><span>' + (isEdit ? "Edit" : "Log") + ' a get-together</span></h3>'
     + '<div class="field"><label>When was it?</label><input type="date" id="r-date" value="' + esc(dateVal) + '" max="' + esc(iso(TODAY)) + '" />'
     + '<p class="tiny">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
@@ -1689,7 +1509,7 @@ function viewFeed() {
 }
 function entriesByDate() {
   var map = {};
-  logEntries().forEach(function (e) { map[e.date] = e; });
+  logEntries().forEach(function (e) { (map[e.date] = map[e.date] || []).push(e); });
   return map;
 }
 function viewCalendar() {
@@ -1709,37 +1529,51 @@ function viewCalendar() {
   for (var b = 0; b < first.getDay(); b++) out += '<span class="cal-day blank"></span>';
   for (var day = 1; day <= lastDay; day++) {
     var key = iso(new Date(year, month, day));
-    var e = byDate[key];
+    var list = byDate[key] || [];
     var isToday = key === iso(TODAY);
     var future = fromIso(key) > TODAY;
-    out += '<button class="cal-day' + (e ? " has" : "") + (isToday ? " today" : "") + (future ? " future" : "") + '"'
-      + (future ? ' disabled' : (e ? ' data-day="' + key + '"' : ' data-log="' + key + '"')) + '>' + day
-      + (e ? '<span class="dot"></span><span class="mini">' + esc((e.activityName || "").split(" ")[0]) + '</span>' : "")
+    out += '<button class="cal-day' + (list.length ? " has" : "") + (isToday ? " today" : "") + (future ? " future" : "") + '"'
+      + (future ? ' disabled' : (list.length ? ' data-day="' + key + '"' : ' data-log="' + key + '"')) + '>' + day
+      + (list.length ? '<span class="dot">' + (list.length > 1 ? list.length : "") + '</span>'
+          + '<span class="mini">' + esc((list[0].activityName || "").split(" ")[0])
+          + (list.length > 1 ? " +" + (list.length - 1) : "") + '</span>' : "")
       + '</button>';
   }
   out += '</div>';
-  var count = Object.keys(byDate).filter(function (k) { return fromIso(k).getMonth() === month && fromIso(k).getFullYear() === year; }).length;
-  out += '<p class="note">' + (count ? count + " get-together" + (count === 1 ? "" : "s") + " this month. "
-    : "Nothing logged this month yet. ") + 'Tap any past day to log one \u2014 including old ones, if you want to fill in history.</p>';
+  var monthKeys = Object.keys(byDate).filter(function (k) { return fromIso(k).getMonth() === month && fromIso(k).getFullYear() === year; });
+  var monthCount = 0;
+  monthKeys.forEach(function (k) { monthCount += byDate[k].length; });
+  out += '<p class="note">' + (monthCount
+      ? monthCount + " get-together" + (monthCount === 1 ? "" : "s") + " across " + monthKeys.length + " day" + (monthKeys.length === 1 ? "" : "s") + ". "
+      : "Nothing logged this month yet. ")
+    + 'Tap any past day to log one \u2014 a day can hold more than one.</p>';
   return out + '</section>';
 }
 function viewDayDetail() {
-  var e = entriesByDate()[S.dayDetail];
-  if (!e) { S.dayDetail = null; return viewCalendar(); }
+  var list = entriesOn(S.dayDetail);
+  if (!list.length) { S.dayDetail = null; return viewCalendar(); }
   var d = fromIso(S.dayDetail);
-  var link = mapsUrl(e);
-  var shots = photoList().filter(function (p) { return p.week === e.week; });
+  var shots = photoList().filter(function (p) { return p.week === list[0].week; });
+
   var out = '<section class="block"><button class="link" id="back-cal">\u2039 back to the month</button>'
-    + '<p class="detail-date" style="margin-top:14px">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + '</p>'
-    + '<h2 class="detail-what">' + esc(e.activityName || "Got together") + '</h2>';
-  if (e.venue) {
-    out += '<p class="detail-venue">' + esc(e.venue)
-      + (link ? '<a class="map-link" href="' + esc(link) + '" target="_blank" rel="noopener">open in maps</a>' : "") + '</p>';
-  }
-  out += '<p class="detail-who">' + ((e.who || []).length
-    ? (e.who || []).map(function (f) { return FAM[f] ? esc(FAM[f].label) : ""; }).filter(Boolean).join(" \u00b7 ")
-    : "Nobody recorded") + '</p>';
-  out += '<div class="row-btns" style="margin-top:18px"><button class="ghost" data-recap="' + e.week + '">Edit</button></div></section>';
+    + '<p class="detail-date" style="margin-top:14px">' + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    + (list.length > 1 ? ' \u00b7 ' + list.length + ' get-togethers' : "") + '</p>';
+
+  list.forEach(function (e, i) {
+    var link = mapsUrl(e);
+    out += '<div class="day-entry' + (i ? " stacked" : "") + '">'
+      + '<h2 class="detail-what">' + esc(e.activityName || "Got together") + '</h2>'
+      + (e.venue ? '<p class="detail-venue">' + esc(e.venue)
+          + (link ? '<a class="map-link" href="' + esc(link) + '" target="_blank" rel="noopener">open in maps</a>' : "") + '</p>' : "")
+      + '<p class="detail-who">' + ((e.who || []).length
+          ? (e.who || []).map(function (f) { return FAM[f] ? esc(FAM[f].label) : ""; }).filter(Boolean).join(" \u00b7 ")
+          : "Nobody recorded") + '</p>'
+      + '<div class="row-btns" style="margin-top:12px"><button class="ghost" data-edit="' + esc(e.date) + "|" + esc(e.id) + '">Edit</button></div>'
+      + '</div>';
+  });
+
+  out += '<div class="row-btns" style="margin-top:20px">'
+    + '<button class="primary" data-log="' + esc(S.dayDetail) + '">Add another for this day</button></div></section>';
 
   out += '<section class="block"><h3 class="rule-head"><span>Photos from that weekend</span></h3>';
   if (!shots.length) {
@@ -1753,6 +1587,7 @@ function viewDayDetail() {
   }
   return out + '</section>';
 }
+
 
 function viewPlaces() {
   if (!S.log) return '<section class="block"><p class="empty">Loading\u2026</p></section>';
@@ -2035,8 +1870,16 @@ document.addEventListener("click", function (e) {
   }
 
   /* ---- recap ---- */
+  if (d.edit) {
+    var parts = d.edit.split("|");
+    S.recap = parts[0]; S.recapId = parts[1];
+    var ex = entryAt(parts[0], parts[1]);
+    S.recapWho = ex && ex.who ? ex.who.slice() : [];
+    S.recapDraft = null; S.recapVenue = null; S.dayDetail = null; S.recapSource = null; S.confirming = null;
+    render(); return;
+  }
   if (d.recap) {
-    S.recap = d.recap; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null;
+    S.recap = d.recap; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null;
     var existing = (S.log && S.log[d.recap]) || null;
     S.recapWho = existing && existing.who ? existing.who.slice() : [];
     S.recapSource = null;
@@ -2077,25 +1920,31 @@ document.addEventListener("click", function (e) {
     }
     return;
   }
-  if (t.id === "r-cancel") { S.recap = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null; render(); return; }
+  if (t.id === "r-cancel") { S.recap = null; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null; render(); return; }
   if (t.id === "r-delete") {
     if (S.confirming !== "del") { captureRecap(); S.confirming = "del"; render(); return; }
-    var delKey = S.recap;
-    delete S.log[delKey];
-    S.recap = null; S.recapDraft = null; S.confirming = null; S.dayDetail = null; setStatus("saving"); render();
-    req("DELETE", "/log/" + delKey).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
+    var delKey = S.recap, delId = S.recapId;
+    if (S.log[delKey]) {
+      delete S.log[delKey][delId];
+      if (!Object.keys(S.log[delKey]).length) delete S.log[delKey];
+    }
+    var stillThere = !!S.log[delKey];
+    S.recap = null; S.recapId = null; S.recapDraft = null; S.confirming = null;
+    S.dayDetail = stillThere ? delKey : null;
+    setStatus("saving"); render();
+    req("DELETE", "/log/" + delKey + "/" + delId).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
     return;
   }
   if (d.month) { S.calMonth = d.month; S.dayDetail = null; render(); return; }
   if (d.day) { S.dayDetail = d.day; loadPhotoMeta(); render(); return; }
   if (d.log) {
-    S.recap = d.log; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null; S.recapWho = []; S.confirming = null;
-    S.recapSource = null; render(); return;
+    S.recap = d.log; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.dayDetail = null;
+    S.recapWho = []; S.confirming = null; S.recapSource = null; render(); return;
   }
   if (t.id === "back-cal") { S.dayDetail = null; render(); return; }
   if (t.id === "skip-recap") { S.skipRecap = unloggedWeek(); render(); return; }
   if (t.id === "r-save") {
-    var oldKey = S.recap;
+    var oldKey = S.recap, oldId = S.recapId;
     var wk = (document.getElementById("r-date") || {}).value || oldKey;
     var sel = document.getElementById("r-act").value;
     var other = (document.getElementById("r-act-other").value || "").trim();
@@ -2114,13 +1963,18 @@ document.addEventListener("click", function (e) {
       if (known && known.lat) { entry.lat = known.lat; entry.lon = known.lon; }
     }
     S.log = S.log || {};
-    if (oldKey !== wk) delete S.log[oldKey];
-    S.log[wk] = entry;
-    S.recap = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null;
+    var entryId = oldId || newEntryId();
+    if (oldId && S.log[oldKey] && oldKey !== wk) {
+      delete S.log[oldKey][oldId];
+      if (!Object.keys(S.log[oldKey]).length) delete S.log[oldKey];
+    }
+    if (!S.log[wk]) S.log[wk] = {};
+    S.log[wk][entryId] = entry;
+    S.recap = null; S.recapId = null; S.recapDraft = null; S.recapVenue = null; S.confirming = null;
     S.dayDetail = wk; S.calMonth = iso(new Date(fromIso(wk).getFullYear(), fromIso(wk).getMonth(), 1));
     S.view = "calendar"; setStatus("saving"); render();
-    var jobs = [req("PUT", "/log/" + wk, entry)];
-    if (oldKey !== wk) jobs.push(req("DELETE", "/log/" + oldKey));
+    var jobs = [req("PUT", "/log/" + wk + "/" + entryId, entry)];
+    if (oldId && oldKey !== wk) jobs.push(req("DELETE", "/log/" + oldKey + "/" + oldId));
     Promise.all(jobs).then(function () { setStatus("ok"); }).catch(function () { setStatus("error"); });
     return;
   }
