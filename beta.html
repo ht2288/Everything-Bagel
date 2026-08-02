@@ -1241,7 +1241,11 @@ function fetchNewSpots(activity) {
   }).catch(function () { return null; });
 }
 /* Prefer places that look built for kids, then closer to the middle of everyone. */
-function pickNew(list) {
+function pickNew(list, exclude) {
+  var skip = {};
+  (exclude || []).forEach(function (n) { skip[String(n).toLowerCase()] = 1; });
+  var fresh = list.filter(function (v) { return !skip[v.name.toLowerCase()]; });
+  if (fresh.length) list = fresh;          // fall back to the whole list once exhausted
   if (!list.length) return null;
   var scored = list.map(function (v) {
     var near = Math.exp(-kmFrom(v.lat, v.lon) / AREA.decayKm);
@@ -1526,7 +1530,8 @@ function viewSpot() {
     out += '<div class="find"><p class="find-kicker">Never been \u2014 how about</p>'
       + '<p class="find-name">' + esc(dv.name) + '</p>'
       + (dv.kid.length ? '<p class="find-tags">' + dv.kid.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join("") + '</p>' : "")
-      + '<p class="find-dist">about ' + Math.max(1, Math.round(kmFrom(dv.lat, dv.lon) * 0.621)) + ' miles from central Irvine</p>'
+      + '<p class="find-dist">about ' + Math.max(1, Math.round(kmFrom(dv.lat, dv.lon) * 0.621)) + ' miles from central Irvine'
+      + (S.findPool && S.findPool.length > 1 ? ' \u00b7 ' + S.findPool.length + ' new options found' : "") + '</p>'
       + '<div class="row-btns"><button class="primary" data-spot="' + esc(dv.name) + '" data-lat="' + dv.lat + '" data-lon="' + dv.lon + '"'
       + (dv.sub ? ' data-sub="' + esc(dv.sub) + '"' : "") + '>Back this</button>'
       + '<button class="ghost" data-find="1"' + (S.discovering ? ' disabled' : '') + '>'
@@ -2122,7 +2127,7 @@ document.addEventListener("click", function (e) {
 
   /* ---- feed ---- */
   if (d.year) { S.statYear = d.year; render(); return; }
-  if (d.spotact) { S.spotAct = d.spotact; S.discovered = null; render(); return; }
+  if (d.spotact) { S.spotAct = d.spotact; S.discovered = null; S.findPool = null; S.findSeen = []; S.discoverMsg = null; render(); return; }
   if (d.spot) { setSpot(d.spot, d.lat ? Number(d.lat) : null, d.lon ? Number(d.lon) : null, false, d.sub || null); S.discovered = null; render(); return; }
   if (t.id === "clear-spot") { clearSpot(); render(); return; }
   if (t.id === "offer-host") {
@@ -2136,16 +2141,43 @@ document.addEventListener("click", function (e) {
     if (S.discovering) return;
     var rowN = spotActivity();
     var actN = rowN ? rowN.activity.name : "";
+
+    /* Results are cached per activity so "Try another" cycles through what we
+       already fetched instead of hammering the map service each tap. */
+    if (S.findPool && S.findPoolFor === actN && S.findPool.length) {
+      S.findSeen = S.findSeen || [];
+      var next = pickNew(S.findPool, S.findSeen);
+      if (next) {
+        if (S.findSeen.length >= S.findPool.length - 1) S.findSeen = [];
+        S.findSeen.push(next.name);
+        S.discovered = next;
+        S.discoverMsg = S.findPool.length === 1 ? "That\u2019s the only new one nearby for this." : null;
+        S.scrollToFind = true;
+        render();
+      }
+      return;
+    }
+
     S.discovering = true; S.discoverMsg = null; render();
     fetchNewSpots(actN).then(function (list) {
-      if (list === null) { S.discovered = null; S.discoverMsg = "Couldn\u2019t reach the map service just now \u2014 try again in a moment, or search by name above."; }
-      else if (!list.length) { S.discovered = null; S.discoverMsg = "Nothing new nearby for this one \u2014 you\u2019ve been to most of them already."; }
-      else { S.discovered = pickNew(list); S.discoverMsg = null; }
+      if (list === null) {
+        S.discovered = null; S.findPool = null;
+        S.discoverMsg = "Couldn\u2019t reach the map service just now \u2014 try again in a moment, or search by name above.";
+      } else if (!list.length) {
+        S.discovered = null; S.findPool = null;
+        S.discoverMsg = "Nothing new nearby for this one \u2014 you\u2019ve been to most of them already.";
+      } else {
+        S.findPool = list; S.findPoolFor = actN; S.findSeen = [];
+        S.discovered = pickNew(list, []);
+        S.findSeen.push(S.discovered.name);
+        S.discoverMsg = null;
+      }
     }).catch(function () {
-      S.discovered = null; S.discoverMsg = "Something went wrong looking that up \u2014 try again.";
+      S.discovered = null; S.findPool = null;
+      S.discoverMsg = "Something went wrong looking that up \u2014 try again.";
     }).then(function () {
       S.discovering = false;
-      S.scrollToFind = !!S.discovered;     // bring the result into view
+      S.scrollToFind = !!S.discovered;
       render();
     });
     return;
